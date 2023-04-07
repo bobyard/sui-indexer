@@ -1,0 +1,16 @@
+[package]
+name = "sui-indexer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.27.0", features = ["full"] }
+diesel = { version = "2.0.0", features = ["postgres"] }
+futures = "0.3.23"
+serde = { version = "1.0.144", features = ["derive"] }
+serde_json = "1.0.83"
+anyhow = { version = "1.0.64", features = ["backtrace"] }
+sui-sdk = { git = "https://github.com/MystenLabs/sui", branch = "testnet" }
+tracing = "0.1"
+tracing-subscriber = "0.2.0"
+chrono = "0.4.24"

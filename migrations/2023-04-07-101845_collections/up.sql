@@ -1,0 +1,25 @@
+-- Your SQL goes here
+CREATE TABLE collections (
+    "id" SERIAL PRIMARY KEY,
+    "chain_id" int4 NOT NULL,
+    "slug" varchar(255),
+    "collection_id" varchar(255) NOT NULL,
+    "collection_type" varchar(255) NOT NULL,
+    "creator_address" varchar(255) NOT NULL,
+    "collection_name" varchar(255) NOT NULL,
+    "description" varchar NOT NULL,
+    "supply" int8 NOT NULL,
+    "version" int8 NOT NULL,
+    "metadata_uri" text NOT NULL,
+    "metadata" text NOT NULL,
+    "floor_sell_id" int4,
+    "floor_sell_value" int8,
+    "floor_sell_coin_id" int4,
+    "best_bid_id" int4,
+    "best_bid_value" int8,
+    "best_bid_coin_id" int4,
+    "verify" bool NOT NULL DEFAULT false,
+    "last_metadata_sync" timestamp,
+    "created_at" timestamp DEFAULT now(),
+    "updated_at" timestamp DEFAULT now()
+);
