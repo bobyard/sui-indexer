@@ -23,7 +23,7 @@ use tracing::info;
 
 const MULTI_GET_CHUNK_SIZE: usize = 500;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy,Eq, PartialEq)]
 pub enum ObjectStatus {
     Created,
     Mutated,

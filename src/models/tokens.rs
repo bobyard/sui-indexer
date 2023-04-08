@@ -1,10 +1,9 @@
 use diesel::insert_into;
 use diesel::prelude::*;
 use anyhow::Result;
+use diesel::upsert::excluded;
 
 use crate::schema::tokens;
-
-
 
 #[derive(Insertable,Debug,Clone)]
 #[diesel(table_name = tokens)]
@@ -31,6 +30,22 @@ pub struct Token{
 pub fn batch_insert(connection: &mut PgConnection, new_tokens: &Vec<Token>) -> Result<usize>{
     insert_into(tokens::table)
         .values(new_tokens)
+        .on_conflict(tokens::token_id)
+        .do_nothing()
+        .execute(connection).map_err(|e| anyhow::anyhow!(e.to_string()))
+}
+
+pub fn batch_change(connection: &mut PgConnection, changed: &Vec<Token>) -> Result<usize>{
+    insert_into(tokens::table)
+        .values(changed)
+        .on_conflict(tokens::token_id)
+        .do_update()
+        .set((
+                tokens::metadata_json.eq(excluded(tokens::metadata_json)),
+                tokens::version.eq(excluded(tokens::version)),
+                tokens::owner_address.eq(excluded(tokens::owner_address)),
+                tokens::updated_at.eq(excluded(tokens::updated_at)),
+        ))
         .execute(connection).map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 

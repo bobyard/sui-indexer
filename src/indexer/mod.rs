@@ -9,13 +9,15 @@ use anyhow::{Error, Result};
 use chrono::prelude::*;
 use redis::Commands;
 use serde_json::Value;
+use serde_json::value::Index;
 use tracing::{debug,info};
 use sui_sdk::rpc_types::{Checkpoint, SuiObjectData, SuiParsedData, SuiTransactionBlockResponse};
 use sui_sdk::types::object::Object;
 use crate::{fetch_changed_objects, get_object_changes, multi_get_full_transactions, ObjectStatus};
+use crate::models::activities::{Activity, ActivityType,batch_insert as batch_insert_activities};
 
 use crate::models::collections::{batch_insert, Collection};
-use crate::models::tokens::{Token, batch_insert as batch_insert_tokens};
+use crate::models::tokens::{Token,batch_change as batch_change_tokens, batch_insert as batch_insert_tokens};
 
 extern crate redis;
 
@@ -50,7 +52,7 @@ impl Indexer{
             self.token_indexer_work(&object_changed).await?;
             self.transaction_events_work(&transactions).await?;
 
-            info!(transactions = transactions.len(),check_point, "Downloaded transactions");
+//            info!(transactions = transactions.len(),check_point, "Downloaded transactions");
 
             // let object_changes = transactions.iter().map(|tx| {
             //     tx.object_changes.unwrap_or_default().iter().map(|object|object.clone()).collect::<Vec<_>>()
@@ -134,11 +136,11 @@ impl Indexer{
                 let fields = &kv["fields"]["contents"];
                 let kv_set = Self::json_to_kv_map(fields);
 
-                let name = kv_set.get(&"name".to_string()).unwrap_or(&"".to_string()).clone();
-                let link = kv_set.get(&"link".to_string()).unwrap_or(&"".to_string()).clone();
+                //let name = kv_set.get(&"name".to_string()).unwrap_or(&"".to_string()).clone();
+                //let link = kv_set.get(&"link".to_string()).unwrap_or(&"".to_string()).clone();
                 let image_url = kv_set.get(&"image_url".to_string()).unwrap_or(&"".to_string()).clone();
                 let description = kv_set.get(&"description".to_string()).unwrap_or(&"".to_string()).clone();
-                let project_url = kv_set.get(&"project_url".to_string()).unwrap_or(&"".to_string()).clone();
+                //let project_url = kv_set.get(&"project_url".to_string()).unwrap_or(&"".to_string()).clone();
                 let creator = kv_set.get(&"creator".to_string()).unwrap_or(&"".to_string()).clone();
 
 
@@ -167,14 +169,42 @@ impl Indexer{
                     updated_at: Utc::now().naive_utc(),
                 };
 
-                return Some(collection);
+                return Some((status,collection));
             }
 
             None
+        }).collect::<Vec<(&ObjectStatus,Collection)>>();
+
+        let insert_collections = collections.iter().filter_map(|(objects,collection)|{
+            if *objects == &ObjectStatus::Created {
+                return Some(collection.clone());
+            }
+            None
         }).collect::<Vec<Collection>>();
 
-        batch_insert(&mut self.postgres,&collections)?;
-        //TODO insert acttivtis
+//TODO insert acttivtis
+        batch_insert(&mut self.postgres,&insert_collections)?;
+        let created_activitis = insert_collections.iter().map(|collection|{
+            Activity::new_from_collection_with_type(ActivityType::Created, collection)
+        }).collect::<Vec<Activity>>();
+        batch_insert_activities(&mut self.postgres,&created_activitis)?;
+
+        // let changed_collections = collections.iter().filter_map(|objects, collection|{
+        //     if objects == &ObjectStatus::Mutated || objects == &ObjectStatus::Wrapped {
+        //         return Some(collection);
+        //     }
+        //     None
+        // }).collect::<Vec<Collection>>();
+
+        // let delete_collections = collections.iter().filter_map(|objects, collection|{
+        //     if objects == &ObjectStatus::Deleted || objects == &ObjectStatus::UnwrappedThenDeleted {
+        //         return Some(collection);
+        //     }
+        //     None
+        // }).collect::<Vec<Collection>>();
+
+
+
 
         Ok(())
     }
@@ -188,51 +218,73 @@ impl Indexer{
             if con.hexists("collections", object_type.clone()).unwrap() {
 
                 let content = obj.content.as_ref().unwrap();
-                dbg!(content);
 
-                let kv = match content {
+                dbg!(content);
+                dbg!(&status);
+
+                let (kv,pkg) = match content {
                     SuiParsedData::MoveObject(parseObj) => {
-                        parseObj.fields.clone().to_json_value()
+                        (parseObj.fields.clone().to_json_value(),(parseObj.type_.address.clone(),parseObj.type_.module.clone(),parseObj.type_.name.clone()))
                     }
                     SuiParsedData::Package(_) => {unreachable!("Package should not be in display")}
                 };
-
-                let fields = &kv["fields"]["contents"];
-                let kv_set = Self::json_to_kv_map(fields);
-
+                dbg!(&kv);
+                let kv_set = Self::json_to_kv_map(&kv);
+                dbg!(&kv_set);
                 let name = kv_set.get(&"name".to_string()).unwrap_or(&"".to_string()).clone();
-                let link = kv_set.get(&"link".to_string()).unwrap_or(&"".to_string()).clone();
                 let image_url = kv_set.get(&"image_url".to_string()).unwrap_or(&"".to_string()).clone();
-                let description = kv_set.get(&"description".to_string()).unwrap_or(&"".to_string()).clone();
-                let project_url = kv_set.get(&"project_url".to_string()).unwrap_or(&"".to_string()).clone();
-                let creator = kv_set.get(&"creator".to_string()).unwrap_or(&"".to_string()).clone();
-
                 let owner_address = obj.owner.as_ref().map(|owner| owner.get_owner_address().unwrap_or_default().to_string());
 
-                return Some(Token{
+                let mut collection_addr = pkg.0.to_string();
+                collection_addr.insert_str(0,&"0x");
+
+                return Some((status,Token{
                     chain_id: 1,
                     token_id: obj.object_id.to_string(),
                     collection_id: object_type.clone(),
-                    creator_address: "".to_string(),
-                    collection_name: "".to_string(),
-                    token_name: "".to_string(),
-                    attributes:  None,
+                    creator_address: collection_addr,
+                    collection_name: pkg.2.to_string(),
+                    token_name: name,
+                    attributes:  Some(kv.to_string()),
                     version: obj.version.value() as i64,
                     payee_address: "".to_string(),
                     royalty_points_numerator: 0,
                     royalty_points_denominator: 0,
                     owner_address,
-                    metadata_uri: "".to_string(),
-                    metadata_json: None,
+                    metadata_uri: image_url,
+                    metadata_json: Some(kv.to_string()),
                     image: None,
                     created_at: Utc::now().naive_utc(),
                     updated_at: Utc::now().naive_utc(),
-                });
+                }));
+            }
+            None
+        }).collect::<Vec<(&ObjectStatus,Token)>>();
+
+        let insert_tokens = tokens.iter().filter_map(|(objects,token)|{
+            if *objects == &ObjectStatus::Created {
+                return Some(token.clone());
             }
             None
         }).collect::<Vec<Token>>();
+        batch_insert_tokens(&mut self.postgres,&insert_tokens)?;
 
-        batch_insert_tokens(&mut self.postgres,&tokens)?;
+        let mint_activitis = insert_tokens.iter().map(|token|{
+            Activity::new_from_token_with_type(ActivityType::Minted,token)
+        }).collect::<Vec<Activity>>();
+        batch_insert_activities(&mut self.postgres,&mint_activitis)?;
+
+        let changed_tokens = tokens.iter().filter_map(|(objects, token)|{
+            if *objects == &ObjectStatus::Mutated || *objects == &ObjectStatus::Wrapped {
+                return Some(token.clone());
+            }
+            None
+        }).collect::<Vec<Token>>();
+        batch_change_tokens(&mut self.postgres,&changed_tokens)?;
+        let transfer_activitis = changed_tokens.iter().map(|token|{
+            Activity::new_from_token_with_type(ActivityType::Transferred,token)
+        }).collect::<Vec<Activity>>();
+        batch_insert_activities(&mut self.postgres,&transfer_activitis)?;
 
         Ok(())
     }
@@ -253,6 +305,14 @@ impl Indexer{
                 let value = v["value"].to_string();
                 kv_set.insert(name,value);
             }
+        } else if fields.is_object() {
+            fields.as_object().unwrap().iter().for_each(|(k,v)| {
+                if k == &"id" {
+                    return;
+                }
+
+                kv_set.insert(k.to_string(),v.as_str().unwrap_or("").to_string());
+            });
         }
         kv_set
     }

@@ -1,8 +1,17 @@
 // @generated automatically by Diesel CLI.
 
+pub mod sql_types {
+    #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "activity_type"))]
+    pub struct ActivityType;
+}
+
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::ActivityType;
+
     activities (id) {
-        id -> Int4,
+        id -> Int8,
         chain_id -> Int8,
         version -> Int8,
         event_account_address -> Text,
@@ -10,16 +19,16 @@ diesel::table! {
         event_sequence_number -> Int8,
         collection_data_id_hash -> Text,
         token_data_id_hash -> Text,
-        property_version -> Numeric,
+        property_version -> Int8,
         creator_address -> Text,
         collection_name -> Text,
         name -> Text,
-        transfer_type -> Text,
+        transfer_type -> ActivityType,
         from_address -> Nullable<Text>,
         to_address -> Nullable<Text>,
-        token_amount -> Numeric,
+        token_amount -> Int8,
         coin_type -> Nullable<Text>,
-        coin_amount -> Nullable<Numeric>,
+        coin_amount -> Nullable<Int8>,
         transaction_timestamp -> Timestamp,
         created_at -> Nullable<Timestamp>,
         updated_at -> Nullable<Timestamp>,
@@ -76,8 +85,7 @@ diesel::table! {
 }
 
 diesel::table! {
-    tokens (id) {
-        id -> Int8,
+    tokens (token_id) {
         chain_id -> Int8,
         token_id -> Varchar,
         collection_id -> Varchar,

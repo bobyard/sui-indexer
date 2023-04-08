@@ -9181,6 +9181,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "diesel",
+ "diesel-derive-enum",
  "futures",
  "redis",
  "serde 1.0.159",

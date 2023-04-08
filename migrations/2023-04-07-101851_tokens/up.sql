@@ -1,8 +1,7 @@
 -- Your SQL goes here
 CREATE TABLE tokens (
-   "id" BIGSERIAL PRIMARY KEY,
    "chain_id" BIGINT NOT NULL,
-   "token_id" varchar(255) NOT NULL,
+   "token_id" varchar(255) PRIMARY KEY,
    "collection_id" varchar(255)  NOT NULL,
    "creator_address" varchar(255)  NOT NULL,
    "collection_name" varchar(255)  NOT NULL,
@@ -19,3 +18,7 @@ CREATE TABLE tokens (
    "created_at" timestamp DEFAULT now(),
    "updated_at" timestamp DEFAULT now()
 );
+
+CREATE INDEX token_id_index ON tokens (token_id);
+
+
