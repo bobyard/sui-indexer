@@ -77,7 +77,7 @@ diesel::table! {
 
 diesel::table! {
     tokens (id) {
-        id -> Int4,
+        id -> Int8,
         chain_id -> Int8,
         token_id -> Varchar,
         collection_id -> Varchar,

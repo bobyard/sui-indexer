@@ -3,6 +3,7 @@ pub mod handlers;
 pub mod indexer;
 pub mod models;
 pub mod schema;
+pub mod utils;
 
 use sui_sdk::SuiClientBuilder;
 use anyhow::{Error, Result};
@@ -38,8 +39,9 @@ pub async fn run(cfg:Config)->Result<()> {
     ).await?;
 
     let pg = PgConnection::establish(&cfg.postgres)?;
+    let redis =  redis::Client::open(&*cfg.redis)?;
 
-    Indexer::new(cfg,sui,pg).start().await
+    Indexer::new(cfg,sui,pg,redis).start().await
 }
 
 
