@@ -53,10 +53,19 @@ impl Indexer {
         let mut indexer = query_check_point(&mut self.postgres, 1)? as u64;
 
         loop {
-            let (_check_point_data, transactions, object_changed) =
+            let (check_point_data, transactions, object_changed) =
                 self.download_checkpoint_data(indexer).await?;
-            let mut redis = self.redis.get_connection()?;
+            // dbg!(check_point_data);
+            // if object_changed.len() == 0 {
+            //         info!(
+            //         transactions = transactions.len(),
+            //         indexer, "transactions processed"
+            //     );
+            //     indexer += 1;
+            //     continue;
+            // }
 
+            let mut redis = self.redis.get_connection()?;
             self.postgres.build_transaction().read_write().run(|conn| {
                 assert!(collection_indexer_work(&object_changed, &mut redis, conn).is_ok());
                 assert!(token_indexer_work(&object_changed, &mut redis, conn).is_ok());
@@ -90,6 +99,7 @@ impl Indexer {
 
         while checkpoint.is_err() {
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            info!("CheckPoint fetch failed, retrying... error: {:?}", checkpoint.unwrap_err());
             checkpoint = self.sui_client.read_api().get_checkpoint(seq.into()).await;
         }
 

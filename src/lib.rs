@@ -5,7 +5,7 @@ pub mod models;
 pub mod schema;
 pub mod utils;
 
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Error, Result};
 use config::Config;
 use diesel::pg::PgConnection;
 use diesel::Connection;
@@ -22,6 +22,7 @@ use sui_sdk::types::digests::TransactionDigest;
 use sui_sdk::SuiClientBuilder;
 
 use sui_sdk::types::base_types::{ObjectID, SequenceNumber};
+use tracing::error;
 
 const MULTI_GET_CHUNK_SIZE: usize = 500;
 
@@ -131,8 +132,16 @@ pub async fn fetch_changed_objects(
     .into_iter()
     .try_fold(vec![], |mut acc, chunk| {
         let object_datas = chunk.0?.into_iter().try_fold(vec![], |mut acc, resp| {
+            // let object_data = if let Ok(obj) = resp.into_object() {
+            //     Some(obj)
+            // } else {
+            //     error!("Failed to parse object data,local fullnode have not full-data");
+            //     None
+            // };
             let object_data = resp.into_object()?;
+
             acc.push(object_data);
+            //Ok::<Vec<Option<SuiObjectData>>, Error>(acc)
             Ok::<Vec<SuiObjectData>, Error>(acc)
         })?;
 
@@ -146,7 +155,16 @@ pub async fn fetch_changed_objects(
         let mutated_object_chunk: Vec<(ObjectStatus, SuiObjectData, String, u64)> =
             mutated_object_chunk
                 .into_iter()
-                .map(|(((status, obj), sender), timestamp)| (status, obj, sender, timestamp))
+                // .filter_map(|(((status, obj), sender), timestamp)|{
+                //     if obj.is_some() {
+                //         Some((status, obj.unwrap(), sender, timestamp))
+                //     } else {
+                //         None
+                //     }
+                // })
+                .map(|(((status, obj), sender), timestamp)| {
+                    (status, obj, sender, timestamp)
+                })
                 .collect();
 
         //let mutated_object_chunk:Vec<(ObjectStatus, SuiObjectData,String,u64)> = mutated_object_chunk.iter().map(|(status,obj)| (status,obj,chunk.2.clone(),chunk.3)).collect();
