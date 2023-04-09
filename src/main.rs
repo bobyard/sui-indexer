@@ -1,7 +1,7 @@
 use anyhow::Result;
 use sui_indexer;
-use tracing::instrument::WithSubscriber;
-use tracing_subscriber::fmt::SubscriberBuilder;
+
+
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 #[tokio::main]

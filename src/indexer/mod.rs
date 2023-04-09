@@ -2,7 +2,7 @@ use crate::config::Config;
 use anyhow::{Error, Result};
 use diesel::pg::PgConnection;
 use futures::future::join_all;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
 
@@ -10,11 +10,11 @@ use crate::models::activities::{batch_insert as batch_insert_activities, Activit
 use crate::{fetch_changed_objects, get_object_changes, multi_get_full_transactions, ObjectStatus};
 use chrono::prelude::*;
 use redis::Commands;
-use serde_json::value::Index;
+
 use serde_json::Value;
 use sui_sdk::rpc_types::{Checkpoint, SuiObjectData, SuiParsedData, SuiTransactionBlockResponse};
-use sui_sdk::types::object::Object;
-use tracing::{debug, info};
+
+use tracing::{info};
 
 use crate::models::collections::{batch_insert, Collection};
 use crate::models::tokens::{
@@ -26,7 +26,7 @@ extern crate redis;
 use crate::MULTI_GET_CHUNK_SIZE;
 
 pub(crate) struct Indexer {
-    cfg: Config,
+
     sui_client: SuiClient,
     postgres: PgConnection,
     redis: redis::Client,
@@ -34,13 +34,11 @@ pub(crate) struct Indexer {
 
 impl Indexer {
     pub fn new(
-        cfg: Config,
         sui_client: SuiClient,
         postgres: PgConnection,
         redis: redis::Client,
     ) -> Self {
         Self {
-            cfg,
             sui_client,
             postgres,
             redis,
@@ -52,7 +50,7 @@ impl Indexer {
         let mut check_point = 0;
 
         loop {
-            let (check_point_data, transactions, object_changed) =
+            let (_check_point_data, transactions, object_changed) =
                 self.download_checkpoint_data(check_point).await?;
 
             self.collection_indexer_work(&object_changed).await?;
@@ -146,8 +144,8 @@ impl Indexer {
 
                     let content = obj.content.as_ref().unwrap();
                     let kv = match content {
-                        SuiParsedData::MoveObject(parseObj) => {
-                            parseObj.fields.clone().to_json_value()
+                        SuiParsedData::MoveObject(parse_obj) => {
+                            parse_obj.fields.clone().to_json_value()
                         }
                         SuiParsedData::Package(_) => {
                             unreachable!("Package should not be in display")
@@ -260,12 +258,12 @@ impl Indexer {
                     dbg!(&status);
 
                     let (kv, pkg) = match content {
-                        SuiParsedData::MoveObject(parseObj) => (
-                            parseObj.fields.clone().to_json_value(),
+                        SuiParsedData::MoveObject(parse_obj) => (
+                            parse_obj.fields.clone().to_json_value(),
                             (
-                                parseObj.type_.address.clone(),
-                                parseObj.type_.module.clone(),
-                                parseObj.type_.name.clone(),
+                                parse_obj.type_.address.clone(),
+                                parse_obj.type_.module.clone(),
+                                parse_obj.type_.name.clone(),
                             ),
                         ),
                         SuiParsedData::Package(_) => {
@@ -366,7 +364,7 @@ impl Indexer {
 
     async fn transaction_events_work(
         &self,
-        object_changes: &Vec<SuiTransactionBlockResponse>,
+        _object_changes: &Vec<SuiTransactionBlockResponse>,
     ) -> Result<()> {
         Ok(())
     }

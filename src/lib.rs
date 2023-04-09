@@ -15,15 +15,14 @@ use indexer::Indexer;
 use sui_sdk::apis::ReadApi;
 use sui_sdk::rpc_types::SuiTransactionBlockData::V1;
 use sui_sdk::rpc_types::{
-    OwnedObjectRef, SuiGetPastObjectRequest, SuiObjectData, SuiObjectDataOptions,
-    SuiTransactionBlockEffects, SuiTransactionBlockEffectsAPI, SuiTransactionBlockResponse,
+    OwnedObjectRef, SuiGetPastObjectRequest, SuiObjectData, SuiObjectDataOptions, SuiTransactionBlockEffectsAPI, SuiTransactionBlockResponse,
     SuiTransactionBlockResponseOptions,
 };
 use sui_sdk::types::digests::TransactionDigest;
 use sui_sdk::SuiClientBuilder;
 
 use sui_sdk::types::base_types::{ObjectID, SequenceNumber};
-use tracing::info;
+
 
 const MULTI_GET_CHUNK_SIZE: usize = 500;
 
@@ -39,11 +38,10 @@ pub enum ObjectStatus {
 
 pub async fn run(cfg: Config) -> Result<()> {
     let sui = SuiClientBuilder::default().build(&cfg.node).await?;
-
     let pg = PgConnection::establish(&cfg.postgres)?;
     let redis = redis::Client::open(&*cfg.redis)?;
 
-    Indexer::new(cfg, sui, pg, redis).start().await
+    Indexer::new(sui, pg, redis).start().await
 }
 
 pub async fn multi_get_full_transactions(
