@@ -1,8 +1,8 @@
 -- Your SQL goes here
 CREATE TABLE domains (
-    "id" SERIAL PRIMARY KEY,
     "chain_id" int8 NOT NULL,
-    "hash_id" varchar(255),
+    "token_id" varchar(255) PRIMARY KEY,
+    "collection_id" varchar(255)  NOT NULL,
     "domain" varchar(255) NOT NULL,
     "domain_type" varchar(255) NOT NULL,
     "sub_domain" varchar(255) NOT NULL,

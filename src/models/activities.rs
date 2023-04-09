@@ -1,19 +1,18 @@
-use diesel::insert_into;
-use diesel::prelude::*;
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
-use diesel_derive_enum::DbEnum;
 use crate::models::collections::Collection;
 use crate::models::tokens::Token;
 use crate::schema::activities;
+use anyhow::Result;
+use diesel::insert_into;
+use diesel::prelude::*;
+use diesel_derive_enum::DbEnum;
+use serde::{Deserialize, Serialize};
 
-
-
-#[derive(DbEnum, Debug, Clone, Copy, Deserialize, Serialize,PartialEq)]
+#[derive(DbEnum, Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
 #[ExistingTypePath = "crate::schema::sql_types::ActivityType"]
 #[serde(rename_all = "snake_case")]
 pub enum ActivityType {
-    Created, ///only for collections
+    Created,
+    ///only for collections
     Minted,
     Transferred,
     Listed,
@@ -21,11 +20,11 @@ pub enum ActivityType {
     Sold,
 }
 
-#[derive(Insertable,Debug,Clone)]
+#[derive(Insertable, Debug, Clone)]
 #[diesel(table_name = activities)]
 pub struct Activity {
-    pub chain_id:i64,
-    pub version:i64,
+    pub chain_id: i64,
+    pub version: i64,
     pub event_account_address: String,
     pub event_creation_number: i64,
     pub event_sequence_number: i64,
@@ -46,14 +45,15 @@ pub struct Activity {
     pub updated_at: chrono::NaiveDateTime,
 }
 
-pub fn batch_insert(connection: &mut PgConnection, new: &Vec<Activity>) -> Result<usize>{
+pub fn batch_insert(connection: &mut PgConnection, new: &Vec<Activity>) -> Result<usize> {
     insert_into(activities::table)
         .values(new)
-        .execute(connection).map_err(|e| anyhow::anyhow!(e.to_string()))
+        .execute(connection)
+        .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 
 impl Activity {
-    pub fn new_from_collection_with_type(t:ActivityType, collection:&Collection) -> Activity {
+    pub fn new_from_collection_with_type(t: ActivityType, collection: &Collection) -> Activity {
         Activity {
             chain_id: collection.chain_id as i64,
             version: collection.version,
@@ -67,7 +67,7 @@ impl Activity {
             collection_name: collection.collection_name.clone(),
             name: "".to_string(),
             transfer_type: t,
-            from_address: None,
+            from_address: Some(collection.creator_address.clone()),
             to_address: None,
             token_amount: 0,
             coin_type: None,
@@ -78,7 +78,10 @@ impl Activity {
         }
     }
 
-    pub fn new_from_token_with_type(t:ActivityType,token:&Token) -> Activity {
+    pub fn new_from_token_with_type(
+        t: ActivityType,
+        (token, sender): &(Token, String),
+    ) -> Activity {
         Activity {
             chain_id: token.chain_id,
             version: token.version,
@@ -92,7 +95,7 @@ impl Activity {
             collection_name: token.collection_name.clone(),
             name: token.token_name.clone(),
             transfer_type: t,
-            from_address: None,
+            from_address: Some(sender.clone()),
             to_address: token.owner_address.clone(),
             token_amount: 0,
             coin_type: None,
@@ -103,4 +106,3 @@ impl Activity {
         }
     }
 }
-
