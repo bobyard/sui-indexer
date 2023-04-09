@@ -20,7 +20,6 @@ async fn main() -> Result<()> {
         .with_level(true)
         .with_target(true)
         .with_env_filter(filter)
-        .with_max_level(tracing::Level::INFO)
         .finish();
 
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
