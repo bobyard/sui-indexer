@@ -36,6 +36,13 @@ diesel::table! {
 }
 
 diesel::table! {
+    check_point (chain_id) {
+        chain_id -> Int8,
+        version -> Int8,
+    }
+}
+
+diesel::table! {
     collections (id) {
         id -> Int4,
         chain_id -> Int4,
@@ -63,10 +70,10 @@ diesel::table! {
 }
 
 diesel::table! {
-    domains (id) {
-        id -> Int4,
+    domains (token_id) {
         chain_id -> Int8,
-        hash_id -> Nullable<Varchar>,
+        token_id -> Varchar,
+        collection_id -> Varchar,
         domain -> Varchar,
         domain_type -> Varchar,
         sub_domain -> Varchar,
@@ -106,4 +113,10 @@ diesel::table! {
     }
 }
 
-diesel::allow_tables_to_appear_in_same_query!(activities, collections, domains, tokens,);
+diesel::allow_tables_to_appear_in_same_query!(
+    activities,
+    check_point,
+    collections,
+    domains,
+    tokens,
+);
