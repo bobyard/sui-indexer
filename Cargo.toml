@@ -10,7 +10,7 @@ futures = "0.3.23"
 serde = { version = "1.0.144", features = ["derive"] }
 serde_json = "1.0.83"
 anyhow = { version = "1.0.64", features = ["backtrace"] }
-sui-sdk = { git = "https://github.com/MystenLabs/sui", branch = "main" }
+sui-sdk = { git = "https://github.com/MystenLabs/sui", branch = "testnet" }
 tracing = "0.1"
 tracing-subscriber = "0.2.0"
 chrono = "0.4.24"

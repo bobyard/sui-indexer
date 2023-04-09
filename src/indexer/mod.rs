@@ -1,5 +1,5 @@
 use crate::config::Config;
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Error, Result};
 use diesel::pg::PgConnection;
 use futures::future::join_all;
 use std::collections::HashMap;
@@ -344,13 +344,13 @@ pub fn token_indexer_work(
         })
         .collect::<Vec<(Token, String)>>();
     let (tokens_for_db, _): (Vec<Token>, Vec<String>) = insert_tokens.clone().into_iter().unzip();
-    batch_insert_tokens(pg, &tokens_for_db)?;
+    batch_insert_tokens(pg, &tokens_for_db).map_err(|e|anyhow!("BatchInsertTokens Failed {}",e.to_string()))?;
 
     let mint_activitis = insert_tokens
         .iter()
         .map(|token| Activity::new_from_token_with_type(ActivityType::Minted, token))
         .collect::<Vec<Activity>>();
-    batch_insert_activities(pg, &mint_activitis)?;
+    batch_insert_activities(pg, &mint_activitis).map_err(|e|anyhow!("BatchInsertActivities Failed {}",e.to_string()))?;
 
     let changed_tokens = tokens
         .iter()
@@ -362,13 +362,13 @@ pub fn token_indexer_work(
         })
         .collect::<Vec<(Token, String)>>();
     let (tokens_for_db, _): (Vec<Token>, Vec<String>) = changed_tokens.clone().into_iter().unzip();
-    batch_change_tokens(pg, &tokens_for_db)?;
+    batch_change_tokens(pg, &tokens_for_db).map_err(|e| anyhow!("BatchChangeTokens failed {}",e.to_string()))?;
 
     let transfer_activitis = changed_tokens
         .iter()
         .map(|token| Activity::new_from_token_with_type(ActivityType::Transferred, token))
         .collect::<Vec<Activity>>();
-    batch_insert_activities(pg, &transfer_activitis)?;
+    batch_insert_activities(pg, &transfer_activitis).map_err(|e| anyhow!("BatchInsertActivities failed {}",e.to_string()))?;
 
     Ok(())
 }
