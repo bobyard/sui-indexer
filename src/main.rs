@@ -1,6 +1,6 @@
 use anyhow::Result;
+use structopt::StructOpt;
 use sui_indexer;
-
 
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
 
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let config = sui_indexer::config::init()?;
+    let config = sui_indexer::config::Config::from_args();
     if let Err(e) = sui_indexer::run(config).await {
         panic!("Error: {}", e);
     }

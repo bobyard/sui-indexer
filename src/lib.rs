@@ -15,14 +15,13 @@ use indexer::Indexer;
 use sui_sdk::apis::ReadApi;
 use sui_sdk::rpc_types::SuiTransactionBlockData::V1;
 use sui_sdk::rpc_types::{
-    OwnedObjectRef, SuiGetPastObjectRequest, SuiObjectData, SuiObjectDataOptions, SuiTransactionBlockEffectsAPI, SuiTransactionBlockResponse,
-    SuiTransactionBlockResponseOptions,
+    OwnedObjectRef, SuiGetPastObjectRequest, SuiObjectData, SuiObjectDataOptions,
+    SuiTransactionBlockEffectsAPI, SuiTransactionBlockResponse, SuiTransactionBlockResponseOptions,
 };
 use sui_sdk::types::digests::TransactionDigest;
 use sui_sdk::SuiClientBuilder;
 
 use sui_sdk::types::base_types::{ObjectID, SequenceNumber};
-
 
 const MULTI_GET_CHUNK_SIZE: usize = 500;
 
@@ -59,10 +58,6 @@ pub async fn multi_get_full_transactions(
                 .with_raw_input(),
         )
         .await?;
-
-    // let sui_full_transactions: Vec<_> = sui_transactions
-    //     .into_iter()
-    //     .collect::<Result<Vec<_>>>()?;
 
     Ok(sui_transactions)
 }

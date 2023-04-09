@@ -16,3 +16,4 @@ tracing-subscriber = "0.2.0"
 chrono = "0.4.24"
 redis = { version = "0.23.0", features = ["tokio-comp"] }
 diesel-derive-enum = { version = "2.0.1", features = ["postgres"] }
+structopt = "0.3.26"

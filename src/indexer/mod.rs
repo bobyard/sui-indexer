@@ -2,7 +2,7 @@ use crate::config::Config;
 use anyhow::{Error, Result};
 use diesel::pg::PgConnection;
 use futures::future::join_all;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
 
@@ -14,7 +14,7 @@ use redis::Commands;
 use serde_json::Value;
 use sui_sdk::rpc_types::{Checkpoint, SuiObjectData, SuiParsedData, SuiTransactionBlockResponse};
 
-use tracing::{info};
+use tracing::info;
 
 use crate::models::collections::{batch_insert, Collection};
 use crate::models::tokens::{
@@ -26,18 +26,13 @@ extern crate redis;
 use crate::MULTI_GET_CHUNK_SIZE;
 
 pub(crate) struct Indexer {
-
     sui_client: SuiClient,
     postgres: PgConnection,
     redis: redis::Client,
 }
 
 impl Indexer {
-    pub fn new(
-        sui_client: SuiClient,
-        postgres: PgConnection,
-        redis: redis::Client,
-    ) -> Self {
+    pub fn new(sui_client: SuiClient, postgres: PgConnection, redis: redis::Client) -> Self {
         Self {
             sui_client,
             postgres,
