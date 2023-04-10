@@ -162,9 +162,7 @@ pub async fn fetch_changed_objects(
                 //         None
                 //     }
                 // })
-                .map(|(((status, obj), sender), timestamp)| {
-                    (status, obj, sender, timestamp)
-                })
+                .map(|(((status, obj), sender), timestamp)| (status, obj, sender, timestamp))
                 .collect();
 
         //let mutated_object_chunk:Vec<(ObjectStatus, SuiObjectData,String,u64)> = mutated_object_chunk.iter().map(|(status,obj)| (status,obj,chunk.2.clone(),chunk.3)).collect();

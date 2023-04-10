@@ -9,11 +9,11 @@ async fn main() -> Result<()> {
     let filter = EnvFilter::from_default_env()
         .add_directive("mio=off".parse().unwrap())
         .add_directive("tokio_util=off".parse().unwrap());
-        // .add_directive("hyper=off".parse().unwrap())
-        // .add_directive("hyper::proto::h1::decode=off".parse().unwrap())
-        // .add_directive("hyper::proto::h1::io=off".parse().unwrap())
-        // .add_directive("hyper::proto::h1::role=off".parse().unwrap())
-        //.add_directive("jsonrpsee=off".parse().unwrap());
+    // .add_directive("hyper=off".parse().unwrap())
+    // .add_directive("hyper::proto::h1::decode=off".parse().unwrap())
+    // .add_directive("hyper::proto::h1::io=off".parse().unwrap())
+    // .add_directive("hyper::proto::h1::role=off".parse().unwrap())
+    //.add_directive("jsonrpsee=off".parse().unwrap());
 
     let subscriber = FmtSubscriber::builder()
         .with_ansi(true)

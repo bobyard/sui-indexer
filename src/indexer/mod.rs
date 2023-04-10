@@ -67,9 +67,10 @@ impl Indexer {
 
             let mut redis = self.redis.get_connection()?;
             self.postgres.build_transaction().read_write().run(|conn| {
-                assert!(collection_indexer_work(&object_changed, &mut redis, conn).is_ok());
-                assert!(token_indexer_work(&object_changed, &mut redis, conn).is_ok());
-                //assert!(transaction_events_work(&transactions,&mut redis,conn).is_ok());
+                if object_changed.len() > 0 {
+                    assert!(collection_indexer_work(&object_changed, &mut redis, conn).is_ok());
+                    assert!(token_indexer_work(&object_changed, &mut redis, conn).is_ok());
+                }
 
                 let updated_row = diesel::update(check_point.filter(chain_id.eq(1)))
                     .set(version.eq(indexer as i64))
@@ -99,7 +100,10 @@ impl Indexer {
 
         while checkpoint.is_err() {
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            info!("CheckPoint fetch failed, retrying... error: {:?}", checkpoint.unwrap_err());
+            info!(
+                "CheckPoint fetch failed, retrying... error: {:?}",
+                checkpoint.unwrap_err()
+            );
             checkpoint = self.sui_client.read_api().get_checkpoint(seq.into()).await;
         }
 
@@ -344,13 +348,15 @@ pub fn token_indexer_work(
         })
         .collect::<Vec<(Token, String)>>();
     let (tokens_for_db, _): (Vec<Token>, Vec<String>) = insert_tokens.clone().into_iter().unzip();
-    batch_insert_tokens(pg, &tokens_for_db).map_err(|e|anyhow!("BatchInsertTokens Failed {}",e.to_string()))?;
+    batch_insert_tokens(pg, &tokens_for_db)
+        .map_err(|e| anyhow!("BatchInsertTokens Failed {}", e.to_string()))?;
 
     let mint_activitis = insert_tokens
         .iter()
         .map(|token| Activity::new_from_token_with_type(ActivityType::Minted, token))
         .collect::<Vec<Activity>>();
-    batch_insert_activities(pg, &mint_activitis).map_err(|e|anyhow!("BatchInsertActivities Failed {}",e.to_string()))?;
+    batch_insert_activities(pg, &mint_activitis)
+        .map_err(|e| anyhow!("BatchInsertActivities Failed {}", e.to_string()))?;
 
     let changed_tokens = tokens
         .iter()
@@ -362,13 +368,15 @@ pub fn token_indexer_work(
         })
         .collect::<Vec<(Token, String)>>();
     let (tokens_for_db, _): (Vec<Token>, Vec<String>) = changed_tokens.clone().into_iter().unzip();
-    batch_change_tokens(pg, &tokens_for_db).map_err(|e| anyhow!("BatchChangeTokens failed {}",e.to_string()))?;
+    batch_change_tokens(pg, &tokens_for_db)
+        .map_err(|e| anyhow!("BatchChangeTokens failed {}", e.to_string()))?;
 
     let transfer_activitis = changed_tokens
         .iter()
         .map(|token| Activity::new_from_token_with_type(ActivityType::Transferred, token))
         .collect::<Vec<Activity>>();
-    batch_insert_activities(pg, &transfer_activitis).map_err(|e| anyhow!("BatchInsertActivities failed {}",e.to_string()))?;
+    batch_insert_activities(pg, &transfer_activitis)
+        .map_err(|e| anyhow!("BatchInsertActivities failed {}", e.to_string()))?;
 
     Ok(())
 }
