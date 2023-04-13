@@ -351,19 +351,21 @@ pub fn token_indexer_work(
             None
         })
         .collect::<Vec<(Token, String)>>();
-    let (tokens_for_db, _): (Vec<Token>, Vec<String>) = insert_tokens.clone().into_iter().unzip();
-    dbg!(&tokens_for_db);
-    if tokens_for_db.len() > 1 {
+    if insert_tokens.len() > 1 {
+        let (tokens_for_db, _): (Vec<Token>, Vec<String>) =
+            insert_tokens.clone().into_iter().unzip();
+        dbg!(&tokens_for_db);
+
         batch_insert_tokens(pg, &tokens_for_db)
             .map_err(|e| anyhow!("BatchInsertTokens Failed {}", e.to_string()))?;
-    }
+        let mint_activitis = insert_tokens
+            .iter()
+            .map(|token| Activity::new_from_token_with_type(ActivityType::Minted, token))
+            .collect::<Vec<Activity>>();
 
-    let mint_activitis = insert_tokens
-        .iter()
-        .map(|token| Activity::new_from_token_with_type(ActivityType::Minted, token))
-        .collect::<Vec<Activity>>();
-    batch_insert_activities(pg, &mint_activitis)
-        .map_err(|e| anyhow!("BatchInsertActivities Failed {}", e.to_string()))?;
+        batch_insert_activities(pg, &mint_activitis)
+            .map_err(|e| anyhow!("BatchInsertActivities Failed {}", e.to_string()))?;
+    }
 
     let changed_tokens = tokens
         .iter()
@@ -374,35 +376,38 @@ pub fn token_indexer_work(
             None
         })
         .collect::<Vec<(Token, String)>>();
-    let (tokens_for_db, _): (Vec<Token>, Vec<String>) = changed_tokens.clone().into_iter().unzip();
-    dbg!(&tokens_for_db);
-    let tokens_for_db1 = tokens_for_db.clone();
-    let tokens_for_db = tokens_for_db
-        .into_iter()
-        .filter(|e| {
-            for t in &tokens_for_db1 {
-                if e.token_id == t.token_id {
-                    if e.version > t.version {
-                        return true;
-                    } else {
-                        return false;
+    if changed_tokens.len() > 1 {
+        let (tokens_for_db, _): (Vec<Token>, Vec<String>) =
+            changed_tokens.clone().into_iter().unzip();
+        dbg!(&tokens_for_db);
+        let tokens_for_db1 = tokens_for_db.clone();
+        let tokens_for_db = tokens_for_db
+            .into_iter()
+            .filter(|e| {
+                for t in &tokens_for_db1 {
+                    if e.token_id == t.token_id {
+                        if e.version < t.version {
+                            return false;
+                        } else {
+                            return true;
+                        }
                     }
                 }
-            }
-            return true;
-        })
-        .collect::<Vec<Token>>();
-    dbg!(&tokens_for_db);
+                return true;
+            })
+            .collect::<Vec<Token>>();
+        dbg!(&tokens_for_db);
 
-    batch_change_tokens(pg, &tokens_for_db)
-        .map_err(|e| anyhow!("BatchChangeTokens failed {}", e.to_string()))?;
+        batch_change_tokens(pg, &tokens_for_db)
+            .map_err(|e| anyhow!("BatchChangeTokens failed {}", e.to_string()))?;
 
-    let transfer_activitis = changed_tokens
-        .iter()
-        .map(|token| Activity::new_from_token_with_type(ActivityType::Transferred, token))
-        .collect::<Vec<Activity>>();
-    batch_insert_activities(pg, &transfer_activitis)
-        .map_err(|e| anyhow!("BatchInsertActivities failed {}", e.to_string()))?;
+        let transfer_activitis = changed_tokens
+            .iter()
+            .map(|token| Activity::new_from_token_with_type(ActivityType::Transferred, token))
+            .collect::<Vec<Activity>>();
+        batch_insert_activities(pg, &transfer_activitis)
+            .map_err(|e| anyhow!("BatchInsertActivities failed {}", e.to_string()))?;
+    }
 
     Ok(())
 }
