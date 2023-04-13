@@ -2,9 +2,9 @@ use crate::config::Config;
 use anyhow::{anyhow, Error, Result};
 use diesel::pg::PgConnection;
 use futures::future::join_all;
+use std::collections::hash_set;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::collections::hash_set;
 use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
 
@@ -53,29 +53,27 @@ impl Indexer {
     pub async fn start(&mut self) -> anyhow::Result<()> {
         //todo insert to db
         //let mut collections = HashSet::new();
-        
+        let mut redis = self.redis.get_connection()?;
+        let a = redis.hgetall::<String, Vec<String>>("collections".to_string())?;
+        dbg!(a);
+
         let mut indexer = query_check_point(&mut self.postgres, 1)? as u64;
 
         loop {
             let (check_point_data, transactions, object_changed) =
-                self.download_checkpoint_data(indexer).await?;
-            // dbg!(check_point_data);
-            // if object_changed.len() == 0 {
-            //         info!(
-            //         transactions = transactions.len(),
-            //         indexer, "transactions processed"
-            //     );
-            //     indexer += 1;
-            //     continue;
-            // }
+                match self.download_checkpoint_data(indexer).await {
+                    Ok(t) => t,
+                    Err(e) => {
+                        info!(error=?e,"Got some error from node, we can continue to process");
+                        continue;
+                    }
+                };
 
-            let mut redis = self.redis.get_connection()?;
             self.postgres.build_transaction().read_write().run(|conn| {
                 if object_changed.len() > 0 {
                     assert!(collection_indexer_work(&object_changed, &mut redis, conn).is_ok());
                     assert!(token_indexer_work(&object_changed, &mut redis, conn).is_ok());
                 }
-
                 let updated_row = diesel::update(check_point.filter(chain_id.eq(1)))
                     .set(version.eq(indexer as i64))
                     .get_result::<(i64, i64)>(conn);
@@ -353,11 +351,10 @@ pub fn token_indexer_work(
         .collect::<Vec<(Token, String)>>();
     let (tokens_for_db, _): (Vec<Token>, Vec<String>) = insert_tokens.clone().into_iter().unzip();
     dbg!(&tokens_for_db);
-    if (tokens_for_db.len()>1){
+    if (tokens_for_db.len() > 1) {
         batch_insert_tokens(pg, &tokens_for_db)
-        .map_err(|e| anyhow!("BatchInsertTokens Failed {}", e.to_string()))?;
+            .map_err(|e| anyhow!("BatchInsertTokens Failed {}", e.to_string()))?;
     }
-
 
     let mint_activitis = insert_tokens
         .iter()
@@ -378,18 +375,21 @@ pub fn token_indexer_work(
     let (tokens_for_db, _): (Vec<Token>, Vec<String>) = changed_tokens.clone().into_iter().unzip();
     dbg!(&tokens_for_db);
     let tokens_for_db1 = tokens_for_db.clone();
-    let tokens_for_db  = tokens_for_db.into_iter().filter(|e|{
-        for t in &tokens_for_db1{
-            if e.token_id == t.token_id{
-                if e.version > t.version{
-                    return true;
-                } else {
-                    return false;
+    let tokens_for_db = tokens_for_db
+        .into_iter()
+        .filter(|e| {
+            for t in &tokens_for_db1 {
+                if e.token_id == t.token_id {
+                    if e.version > t.version {
+                        return true;
+                    } else {
+                        return false;
+                    }
                 }
             }
-        }
-        return true;
-    }).collect::<Vec<Token>>();
+            return true;
+        })
+        .collect::<Vec<Token>>();
     dbg!(&tokens_for_db);
 
     batch_change_tokens(pg, &tokens_for_db)
