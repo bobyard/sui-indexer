@@ -69,11 +69,18 @@ impl Indexer {
                     }
                 };
 
+            let collections = parse_collection(&object_changed, &mut redis)?;
+            let tokens = parse_tokens(&object_changed, &mut redis)?;
+
             self.postgres.build_transaction().read_write().run(|conn| {
-                if object_changed.len() > 0 {
-                    assert!(collection_indexer_work(&object_changed, &mut redis, conn).is_ok());
-                    assert!(token_indexer_work(&object_changed, &mut redis, conn).is_ok());
+                if collections.len() > 0 {
+                    assert!(collection_indexer_work(&collections, conn).is_ok());
                 }
+
+                if tokens.len() > 0 {
+                    assert!(token_indexer_work(&tokens, conn).is_ok());
+                }
+
                 let updated_row = diesel::update(check_point.filter(chain_id.eq(1)))
                     .set(version.eq(indexer as i64))
                     .get_result::<(i64, i64)>(conn);
@@ -142,13 +149,12 @@ impl Indexer {
     }
 }
 
-pub fn collection_indexer_work(
+pub fn parse_collection(
     object_changes: &Vec<(ObjectStatus, SuiObjectData, String, u64)>,
     con: &mut redis::Connection,
-    pg: &mut PgConnection,
-) -> Result<()> {
-    let collections = object_changes
-        .iter()
+) -> Result<Vec<(ObjectStatus, Collection)>> {
+    Ok(object_changes
+        .into_iter()
         .filter_map(|(status, obj, sender, timestamp)| {
             let object_type = obj.type_.as_ref().unwrap().clone().to_string();
             if object_type.contains("0x2::display::Display<") {
@@ -216,17 +222,21 @@ pub fn collection_indexer_work(
                     created_at: NaiveDateTime::from_timestamp_millis(*timestamp as i64).unwrap(),
                     updated_at: NaiveDateTime::from_timestamp_millis(*timestamp as i64).unwrap(),
                 };
-                return Some((status, collection));
+                return Some((status.clone(), collection));
             }
-
             None
         })
-        .collect::<Vec<(&ObjectStatus, Collection)>>();
+        .collect::<Vec<(ObjectStatus, Collection)>>())
+}
 
+pub fn collection_indexer_work(
+    collections: &Vec<(ObjectStatus, Collection)>,
+    pg: &mut PgConnection,
+) -> Result<()> {
     let insert_collections = collections
         .iter()
         .filter_map(|(objects, collection)| {
-            if *objects == &ObjectStatus::Created {
+            if *objects == ObjectStatus::Created {
                 return Some(collection.clone());
             }
             None
@@ -242,30 +252,15 @@ pub fn collection_indexer_work(
         .collect::<Vec<Activity>>();
     batch_insert_activities(pg, &created_activities)?;
 
-    // let changed_collections = collections.iter().filter_map(|objects, collection|{
-    //     if objects == &ObjectStatus::Mutated || objects == &ObjectStatus::Wrapped {
-    //         return Some(collection);
-    //     }
-    //     None
-    // }).collect::<Vec<Collection>>();
-
-    // let delete_collections = collections.iter().filter_map(|objects, collection|{
-    //     if objects == &ObjectStatus::Deleted || objects == &ObjectStatus::UnwrappedThenDeleted {
-    //         return Some(collection);
-    //     }
-    //     None
-    // }).collect::<Vec<Collection>>();
-
     Ok(())
 }
 
-pub fn token_indexer_work(
+pub fn parse_tokens(
     object_changes: &Vec<(ObjectStatus, SuiObjectData, String, u64)>,
     con: &mut redis::Connection,
-    pg: &mut PgConnection,
-) -> Result<()> {
+) -> Result<Vec<(ObjectStatus, (Token, String))>> {
     let tokens = object_changes
-        .iter()
+        .into_iter()
         .filter_map(|(status, obj, sender, timestamp)| {
             let object_type = obj.type_.as_ref().unwrap().clone().to_string();
 
@@ -309,7 +304,7 @@ pub fn token_indexer_work(
                 collection_addr.insert_str(0, &"0x");
 
                 return Some((
-                    status,
+                    status.clone(),
                     (
                         Token {
                             chain_id: 1,
@@ -338,12 +333,19 @@ pub fn token_indexer_work(
             }
             None
         })
-        .collect::<Vec<(&ObjectStatus, (Token, String))>>();
+        .collect::<Vec<(ObjectStatus, (Token, String))>>();
 
+    Ok(tokens)
+}
+
+pub fn token_indexer_work(
+    tokens: &Vec<(ObjectStatus, (Token, String))>,
+    pg: &mut PgConnection,
+) -> Result<()> {
     let insert_tokens = tokens
         .iter()
         .filter_map(|(objects, token)| {
-            if *objects == &ObjectStatus::Created {
+            if *objects == ObjectStatus::Created {
                 return Some(token.clone());
             }
             None
@@ -351,7 +353,7 @@ pub fn token_indexer_work(
         .collect::<Vec<(Token, String)>>();
     let (tokens_for_db, _): (Vec<Token>, Vec<String>) = insert_tokens.clone().into_iter().unzip();
     dbg!(&tokens_for_db);
-    if (tokens_for_db.len() > 1) {
+    if tokens_for_db.len() > 1 {
         batch_insert_tokens(pg, &tokens_for_db)
             .map_err(|e| anyhow!("BatchInsertTokens Failed {}", e.to_string()))?;
     }
@@ -366,7 +368,7 @@ pub fn token_indexer_work(
     let changed_tokens = tokens
         .iter()
         .filter_map(|(objects, token)| {
-            if *objects == &ObjectStatus::Mutated || *objects == &ObjectStatus::Wrapped {
+            if *objects == ObjectStatus::Mutated || *objects == ObjectStatus::Wrapped {
                 return Some(token.clone());
             }
             None
