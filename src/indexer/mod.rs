@@ -348,6 +348,7 @@ pub fn token_indexer_work(
         })
         .collect::<Vec<(Token, String)>>();
     let (tokens_for_db, _): (Vec<Token>, Vec<String>) = insert_tokens.clone().into_iter().unzip();
+    dbg!(&tokens_for_db);
     batch_insert_tokens(pg, &tokens_for_db)
         .map_err(|e| anyhow!("BatchInsertTokens Failed {}", e.to_string()))?;
 
@@ -368,6 +369,7 @@ pub fn token_indexer_work(
         })
         .collect::<Vec<(Token, String)>>();
     let (tokens_for_db, _): (Vec<Token>, Vec<String>) = changed_tokens.clone().into_iter().unzip();
+    dbg!(&tokens_for_db);    
     batch_change_tokens(pg, &tokens_for_db)
         .map_err(|e| anyhow!("BatchChangeTokens failed {}", e.to_string()))?;
 
