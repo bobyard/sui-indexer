@@ -385,7 +385,7 @@ pub fn token_indexer_work(
             .into_iter()
             .filter(|e| {
                 let mut meet_count = 0;
-                let mut version = e.version;
+                let mut inner_version = e.version;
 
                 for t in &tokens_for_db1 {
                     if e.token_id == t.token_id {
@@ -393,12 +393,12 @@ pub fn token_indexer_work(
                             meet_count += 1;
                         } else {
                             meet_count += 1;
-                            version = t.version;
+                            inner_version = t.version;
                         }
                     }
                 }
 
-                if e.version != version {
+                if e.version != inner_version {
                     return false;
                 }
                 return true;
