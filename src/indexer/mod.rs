@@ -384,14 +384,22 @@ pub fn token_indexer_work(
         let tokens_for_db = tokens_for_db
             .into_iter()
             .filter(|e| {
+                let mut meet_count = 0;
+                let mut version = e.version;
+
                 for t in &tokens_for_db1 {
                     if e.token_id == t.token_id {
-                        if e.version >= t.version {
-                            return true;
+                        if e.version == t.version {
+                            meet_count += 1;
                         } else {
-                            return false;
+                            meet_count += 1;
+                            version = t.version;
                         }
                     }
+                }
+
+                if e.version != version {
+                    return false;
                 }
                 return true;
             })
