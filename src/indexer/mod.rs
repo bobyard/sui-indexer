@@ -2,9 +2,8 @@ use crate::config::Config;
 use anyhow::{anyhow, Error, Result};
 use diesel::pg::PgConnection;
 use futures::future::join_all;
-use std::collections::hash_set;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
 
@@ -54,8 +53,9 @@ impl Indexer {
         //todo insert to db
         //let mut collections = HashSet::new();
         let mut redis = self.redis.get_connection()?;
-        let a = redis.hgetall::<String, Vec<String>>("collections".to_string())?;
-        dbg!(a);
+
+        let a = redis.hgetall::<String, BTreeMap<String, String>>("collections".to_string())?;
+        dbg!(&a);
 
         let mut indexer = query_check_point(&mut self.postgres, 1)? as u64;
 
@@ -386,10 +386,10 @@ pub fn token_indexer_work(
             .filter(|e| {
                 for t in &tokens_for_db1 {
                     if e.token_id == t.token_id {
-                        if e.version < t.version {
-                            return false;
-                        } else {
+                        if e.version >= t.version {
                             return true;
+                        } else {
+                            return false;
                         }
                     }
                 }
