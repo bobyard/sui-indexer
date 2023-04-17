@@ -62,7 +62,7 @@ impl Indexer {
                     Ok(t) => t,
                     Err(e) => {
                         debug!(error=?e,"Got some error from node, we can continue to process");
-                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                         continue;
                     }
                 };
@@ -129,10 +129,15 @@ impl Indexer {
             Ok::<Vec<SuiTransactionBlockResponse>, Error>(acc)
         })?;
 
-        let object_changes = transactions
-            .iter()
-            .flat_map(|tx| get_object_changes(tx))
-            .collect::<Vec<_>>();
+        // let object_changes = transactions
+        //     .iter()
+        //     .flat_map(|tx| get_object_changes(tx))
+        //     .collect::<Vec<_>>();
+        let mut object_changes = vec![];
+        for tx in transactions.iter() {
+            let new_object_changes = get_object_changes(tx)?;
+            object_changes.extend(new_object_changes);
+        }
 
         let changed_objects =
             fetch_changed_objects(self.sui_client.read_api().clone(), object_changes)

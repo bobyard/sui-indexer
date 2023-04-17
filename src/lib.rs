@@ -59,17 +59,29 @@ pub async fn multi_get_full_transactions(
                 .with_raw_input(),
         )
         .await?;
-
     Ok(sui_transactions)
 }
 
 pub fn get_object_changes(
     block: &SuiTransactionBlockResponse,
-) -> Vec<(ObjectID, SequenceNumber, ObjectStatus, String, u64)> {
-    let effects = block.effects.clone().unwrap();
-    let transaction = match block.transaction.clone().unwrap().data {
-        V1(data) => data,
+) -> Result<Vec<(ObjectID, SequenceNumber, ObjectStatus, String, u64)>> {
+    let effects = match block.effects.clone() {
+        Some(effects) => effects,
+        None => return anyhow::bail!("No effects in block"),
     };
+
+    let transaction = match block.transaction.clone() {
+        Some(transaction) => match transaction.data {
+            V1(v1) => v1,
+            _ => return Err(anyhow!("Transaction is not V1")),
+        },
+        _ => return Err(anyhow!("Transaction is not V1")),
+    };
+
+    match block.timestamp_ms {
+        Some(_) => (),
+        None => return Err(anyhow!("No timestamp in block")),
+    }
 
     let created = effects.created().iter().map(|o: &OwnedObjectRef| {
         (
@@ -80,6 +92,7 @@ pub fn get_object_changes(
             block.timestamp_ms.unwrap(),
         )
     });
+
     let mutated = effects.mutated().iter().map(|o: &OwnedObjectRef| {
         (
             o.reference.object_id,
@@ -89,6 +102,7 @@ pub fn get_object_changes(
             block.timestamp_ms.unwrap(),
         )
     });
+
     let unwrapped = effects.unwrapped().iter().map(|o: &OwnedObjectRef| {
         (
             o.reference.object_id,
@@ -98,7 +112,8 @@ pub fn get_object_changes(
             block.timestamp_ms.unwrap(),
         )
     });
-    created.chain(mutated).chain(unwrapped).collect()
+
+    Ok(created.chain(mutated).chain(unwrapped).collect())
 }
 
 pub async fn fetch_changed_objects(
