@@ -21,7 +21,7 @@ use redis::Commands;
 use serde_json::Value;
 use sui_sdk::rpc_types::{Checkpoint, SuiObjectData, SuiParsedData, SuiTransactionBlockResponse};
 
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::models::collections::{batch_insert, Collection};
 use crate::models::tokens::{
@@ -53,10 +53,7 @@ impl Indexer {
         //todo insert to db
         //let mut collections = HashSet::new();
         let mut redis = self.redis.get_connection()?;
-
-        let a = redis.hgetall::<String, BTreeMap<String, String>>("collections".to_string())?;
-        dbg!(&a);
-
+        //let mut local_collections = redis.hgetall::<String, BTreeMap<String, String>>("collections".to_string())?;
         let mut indexer = query_check_point(&mut self.postgres, 1)? as u64;
 
         loop {
@@ -64,7 +61,8 @@ impl Indexer {
                 match self.download_checkpoint_data(indexer).await {
                     Ok(t) => t,
                     Err(e) => {
-                        info!(error=?e,"Got some error from node, we can continue to process");
+                        debug!(error=?e,"Got some error from node, we can continue to process");
+                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                         continue;
                     }
                 };
@@ -109,7 +107,7 @@ impl Indexer {
 
         while checkpoint.is_err() {
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            info!(
+            debug!(
                 "CheckPoint fetch failed, retrying... error: {:?}",
                 checkpoint.unwrap_err()
             );
@@ -284,9 +282,8 @@ pub fn parse_tokens(
                         unreachable!("Package should not be in display")
                     }
                 };
-                dbg!(&kv);
+
                 let kv_set = json_to_kv_map(&kv);
-                dbg!(&kv_set);
                 let name = kv_set
                     .get(&"name".to_string())
                     .unwrap_or(&"".to_string())
