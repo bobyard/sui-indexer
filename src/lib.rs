@@ -139,7 +139,9 @@ pub async fn fetch_changed_objects(
         http_client
             .try_multi_get_parsed_past_object(
                 wanted_past_object_request,
-                SuiObjectDataOptions::bcs_lossless().with_content(),
+                SuiObjectDataOptions::bcs_lossless()
+                    .with_content()
+                    .with_display(),
             )
             .map(move |resp| (resp, wanted_past_object_statuses, senders, times))
     }))

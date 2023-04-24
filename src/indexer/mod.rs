@@ -21,6 +21,7 @@ use redis::Commands;
 use serde_json::Value;
 use sui_sdk::rpc_types::{Checkpoint, SuiObjectData, SuiParsedData, SuiTransactionBlockResponse};
 
+use tracing::field::display;
 use tracing::{debug, info};
 
 use crate::models::collections::{batch_insert, Collection};
@@ -72,11 +73,12 @@ impl Indexer {
 
             self.postgres.build_transaction().read_write().run(|conn| {
                 if collections.len() > 0 {
-                    assert!(collection_indexer_work(&collections, conn).is_ok());
+                    //assert!(collection_indexer_work(&collections, conn).is_ok());
+                    collection_indexer_work(&collections, conn).unwrap();
                 }
 
                 if tokens.len() > 0 {
-                    assert!(token_indexer_work(&tokens, conn).is_ok());
+                    token_indexer_work(&tokens, conn).unwrap();
                 }
 
                 let updated_row = diesel::update(check_point.filter(chain_id.eq(1)))
@@ -186,8 +188,6 @@ pub fn parse_collection(
                 let fields = &kv["fields"]["contents"];
                 let kv_set = json_to_kv_map(fields);
 
-                //let name = kv_set.get(&"name".to_string()).unwrap_or(&"".to_string()).clone();
-                //let link = kv_set.get(&"link".to_string()).unwrap_or(&"".to_string()).clone();
                 let image_url = kv_set
                     .get(&"image_url".to_string())
                     .unwrap_or(&"".to_string())
@@ -202,18 +202,26 @@ pub fn parse_collection(
                     .unwrap_or(&"".to_string())
                     .clone();
 
+                let collection_data_in_json = serde_json::to_string(&kv_set).unwrap();
+
                 let collection = Collection {
                     chain_id: 1,
                     slug: "".to_string(),
                     collection_id: object_id,
                     collection_type: object_type,
                     creator_address: sender.clone(),
+                    display_name: None,
+                    website: None,
+                    discord: None,
+                    twitter: None,
+                    icon: None,
+                    banner: None,
                     collection_name: creator,
                     description,
                     supply: 0,
                     version: obj.version.value() as i64,
                     metadata_uri: image_url,
-                    metadata: fields.to_string(),
+                    metadata: collection_data_in_json,
                     floor_sell_id: None,
                     floor_sell_value: None,
                     floor_sell_coin_id: None,
@@ -266,74 +274,57 @@ pub fn parse_tokens(
         .into_iter()
         .filter_map(|(status, obj, sender, timestamp)| {
             let object_type = obj.type_.as_ref().unwrap().clone().to_string();
+            if let Some(display) = &obj.display {
+                if let Some(kv_set) = &display.data {
+                    dbg!(kv_set);
+                    let collection_id = con.hget("collections", object_type.clone()).unwrap();
 
-            if con.hexists("collections", object_type.clone()).unwrap() {
-                let content = obj.content.as_ref().unwrap();
-                let collection_id = con.hget("collections", object_type.clone()).unwrap();
+                    let name = kv_set
+                        .get(&"name".to_string())
+                        .unwrap_or(&"".to_string())
+                        .clone();
+                    let image_url = kv_set
+                        .get(&"image_url".to_string())
+                        .unwrap_or(&"".to_string())
+                        .clone();
+                    let owner_address = obj
+                        .owner
+                        .as_ref()
+                        .map(|owner| owner.get_owner_address().unwrap_or_default().to_string());
 
-                dbg!(content);
-                dbg!(&status);
+                    let display_json = serde_json::to_string(&kv_set).unwrap();
 
-                let (kv, pkg) = match content {
-                    SuiParsedData::MoveObject(parse_obj) => (
-                        parse_obj.fields.clone().to_json_value(),
+                    return Some((
+                        status.clone(),
                         (
-                            parse_obj.type_.address.clone(),
-                            parse_obj.type_.module.clone(),
-                            parse_obj.type_.name.clone(),
+                            Token {
+                                chain_id: 1,
+                                token_id: obj.object_id.to_string(),
+                                collection_id,
+                                creator_address: "".to_string(),
+                                collection_name: "".to_string(),
+                                token_name: name,
+                                attributes: Some(display_json.clone()),
+                                version: obj.version.value() as i64,
+                                payee_address: "".to_string(),
+                                royalty_points_numerator: 0,
+                                royalty_points_denominator: 0,
+                                owner_address,
+                                metadata_uri: image_url,
+                                metadata_json: Some(display_json),
+                                image: None,
+                                created_at: NaiveDateTime::from_timestamp_millis(*timestamp as i64)
+                                    .unwrap(),
+                                updated_at: NaiveDateTime::from_timestamp_millis(*timestamp as i64)
+                                    .unwrap(),
+                            },
+                            sender.clone(),
                         ),
-                    ),
-                    SuiParsedData::Package(_) => {
-                        unreachable!("Package should not be in display")
-                    }
-                };
-
-                let kv_set = json_to_kv_map(&kv);
-                let name = kv_set
-                    .get(&"name".to_string())
-                    .unwrap_or(&"".to_string())
-                    .clone();
-                let image_url = kv_set
-                    .get(&"image_url".to_string())
-                    .unwrap_or(&"".to_string())
-                    .clone();
-                let owner_address = obj
-                    .owner
-                    .as_ref()
-                    .map(|owner| owner.get_owner_address().unwrap_or_default().to_string());
-
-                let mut collection_addr = pkg.0.to_string();
-                collection_addr.insert_str(0, &"0x");
-
-                return Some((
-                    status.clone(),
-                    (
-                        Token {
-                            chain_id: 1,
-                            token_id: obj.object_id.to_string(),
-                            collection_id,
-                            creator_address: collection_addr,
-                            collection_name: pkg.2.to_string(),
-                            token_name: name,
-                            attributes: Some(kv.to_string()),
-                            version: obj.version.value() as i64,
-                            payee_address: "".to_string(),
-                            royalty_points_numerator: 0,
-                            royalty_points_denominator: 0,
-                            owner_address,
-                            metadata_uri: image_url,
-                            metadata_json: Some(kv.to_string()),
-                            image: None,
-                            created_at: NaiveDateTime::from_timestamp_millis(*timestamp as i64)
-                                .unwrap(),
-                            updated_at: NaiveDateTime::from_timestamp_millis(*timestamp as i64)
-                                .unwrap(),
-                        },
-                        sender.clone(),
-                    ),
-                ));
+                    ));
+                }
+                return None;
             }
-            None
+            return None;
         })
         .collect::<Vec<(ObjectStatus, (Token, String))>>();
 
@@ -356,7 +347,6 @@ pub fn token_indexer_work(
     if insert_tokens.len() > 1 {
         let (tokens_for_db, _): (Vec<Token>, Vec<String>) =
             insert_tokens.clone().into_iter().unzip();
-        dbg!(&tokens_for_db);
 
         batch_insert_tokens(pg, &tokens_for_db)
             .map_err(|e| anyhow!("BatchInsertTokens Failed {}", e.to_string()))?;
@@ -426,10 +416,14 @@ pub fn json_to_kv_map(fields: &Value) -> HashMap<String, String> {
     let mut kv_set = HashMap::new();
     if fields.is_array() {
         for v in fields.as_array().unwrap().iter() {
-            let name = v["key"].to_string();
+            let name = v["key"].to_string().strip_prefix('"').unwrap().to_string();
             info!("{}", name.as_str());
             info!("{:?}", &v);
-            let value = v["value"].to_string();
+            let value = v["value"]
+                .to_string()
+                .strip_prefix('"')
+                .unwrap()
+                .to_string();
             kv_set.insert(name, value);
         }
     } else if fields.is_object() {
@@ -437,8 +431,15 @@ pub fn json_to_kv_map(fields: &Value) -> HashMap<String, String> {
             if k == &"id" {
                 return;
             }
-
-            kv_set.insert(k.to_string(), v.as_str().unwrap_or("").to_string());
+            kv_set.insert(
+                k.to_string().strip_prefix('"').unwrap().to_string(),
+                v.as_str()
+                    .unwrap_or("")
+                    .to_string()
+                    .strip_prefix('"')
+                    .unwrap()
+                    .to_string(),
+            );
         });
     }
     kv_set
