@@ -13,7 +13,7 @@ pub struct CheckPoint {
 }
 
 pub fn query_check_point(conn: &mut PgConnection, id: i64) -> Result<i64> {
-    let mut check = check_point
+    let check = check_point
         .filter(chain_id.eq(id))
         .load::<(i64, i64)>(conn)?;
     if check.len() == 0 {

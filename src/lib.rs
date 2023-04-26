@@ -22,7 +22,6 @@ use sui_sdk::types::digests::TransactionDigest;
 use sui_sdk::SuiClientBuilder;
 
 use sui_sdk::types::base_types::{ObjectID, SequenceNumber};
-use tracing::error;
 
 const MULTI_GET_CHUNK_SIZE: usize = 500;
 
@@ -41,7 +40,7 @@ pub async fn run(cfg: Config) -> Result<()> {
     let pg = PgConnection::establish(&cfg.postgres)?;
     let redis = redis::Client::open(&*cfg.redis)?;
 
-    Indexer::new(sui, pg, redis).start().await
+    Indexer::new(cfg, sui, pg, redis).start().await
 }
 
 pub async fn multi_get_full_transactions(
@@ -67,13 +66,12 @@ pub fn get_object_changes(
 ) -> Result<Vec<(ObjectID, SequenceNumber, ObjectStatus, String, u64)>> {
     let effects = match block.effects.clone() {
         Some(effects) => effects,
-        None => return anyhow::bail!("No effects in block"),
+        None => anyhow::bail!("No effects in block"),
     };
 
     let transaction = match block.transaction.clone() {
         Some(transaction) => match transaction.data {
             V1(v1) => v1,
-            _ => return Err(anyhow!("Transaction is not V1")),
         },
         _ => return Err(anyhow!("Transaction is not V1")),
     };

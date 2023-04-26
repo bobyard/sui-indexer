@@ -98,6 +98,56 @@ diesel::table! {
 }
 
 diesel::table! {
+    lists (id) {
+        id -> Int4,
+        chain_id -> Int8,
+        coin_id -> Int4,
+        list_id -> Varchar,
+        list_time -> Timestamp,
+        token_id -> Varchar,
+        seller_address -> Varchar,
+        seller_value -> Int8,
+        expire_time -> Timestamp,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
+    offers (id) {
+        id -> Int4,
+        chain_id -> Int8,
+        coin_id -> Int4,
+        offer_id -> Varchar,
+        list_id -> Varchar,
+        buyer_address -> Varchar,
+        offer_value -> Int8,
+        expire_time -> Timestamp,
+        offer_time -> Timestamp,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
+    orders (id) {
+        id -> Int4,
+        chain_id -> Int8,
+        coin_id -> Int4,
+        list_id -> Varchar,
+        token_id -> Varchar,
+        offer_id -> Nullable<Varchar>,
+        seller_address -> Varchar,
+        buyer_address -> Varchar,
+        value -> Int8,
+        expire_time -> Timestamp,
+        sell_time -> Timestamp,
+        created_at -> Nullable<Timestamp>,
+        updated_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
     tokens (token_id) {
         chain_id -> Int8,
         token_id -> Varchar,
@@ -124,5 +174,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     check_point,
     collections,
     domains,
+    lists,
+    offers,
+    orders,
     tokens,
 );

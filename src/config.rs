@@ -11,4 +11,6 @@ pub struct Config {
     pub postgres: String,
     #[structopt(short, long, default_value = "redis://127.0.0.1/")]
     pub redis: String,
+    #[structopt(short, long)]
+    pub bob_yard: String,
 }
