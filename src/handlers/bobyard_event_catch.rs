@@ -1,6 +1,11 @@
+use crate::models::{lists, offers, orders};
+use crate::schema::offers::offer_time;
 use anyhow::Result;
+use chrono::{NaiveDateTime, Utc};
+use diesel::{PgConnection, RunQueryDsl};
 use serde::{Deserialize, Serialize};
 use sui_sdk::rpc_types::SuiEvent;
+use tracing::info;
 
 // struct ListEvent<phantom T> has copy, drop {
 // list_id: ID,
@@ -152,4 +157,130 @@ pub fn parse_bob_yard_event(
         .collect::<Vec<BobYardEvent>>();
 
     Ok(bob_yard_events)
+}
+
+impl From<&List> for lists::List {
+    fn from(list: &List) -> Self {
+        lists::List {
+            chain_id: 1,
+            coin_id: 1,
+            list_id: list.list_id.clone(),
+            list_time: Utc::now().naive_utc(),
+            token_id: list.list_item_id.clone(),
+            seller_address: list.owner.clone(),
+            seller_value: list.ask.parse().unwrap(),
+            expire_time: NaiveDateTime::from_timestamp_millis(list.expire_time.parse().unwrap())
+                .unwrap(),
+            created_at: Some(Utc::now().naive_utc()),
+            updated_at: Some(Utc::now().naive_utc()),
+        }
+    }
+}
+
+impl From<&Buy> for orders::Order {
+    fn from(buy: &Buy) -> Self {
+        orders::Order {
+            chain_id: 1,
+            coin_id: 1,
+            token_id: buy.list_id.clone(),
+            buyer_address: buy.buyer.clone(),
+            value: buy.ask.parse().unwrap(),
+            seller_address: buy.owner.clone(),
+            created_at: Some(Utc::now().naive_utc()),
+            updated_at: Some(Utc::now().naive_utc()),
+            list_id: buy.list_id.clone(),
+            offer_id: None,
+            sell_time: Default::default(),
+            expire_time: Default::default(),
+        }
+    }
+}
+
+impl From<&MakeOffer> for offers::Offer {
+    fn from(make_offer: &MakeOffer) -> Self {
+        offers::Offer {
+            chain_id: 1,
+            coin_id: 1,
+            offer_id: make_offer.offer_id.clone(),
+            list_id: make_offer.list_id.clone(),
+            buyer_address: make_offer.owner.clone(),
+            offer_value: make_offer.offer_amount.parse().unwrap(),
+            expire_time: NaiveDateTime::from_timestamp_millis(
+                make_offer.expire_time.parse().unwrap(),
+            )
+            .unwrap(),
+            offer_time: Default::default(),
+            created_at: Some(Utc::now().naive_utc()),
+            updated_at: Some(Utc::now().naive_utc()),
+        }
+    }
+}
+
+impl From<&AcceptOffer> for orders::Order {
+    fn from(accept_offer: &AcceptOffer) -> Self {
+        orders::Order {
+            chain_id: 1,
+            coin_id: 1,
+            token_id: accept_offer.list_id.clone(),
+            buyer_address: accept_offer.buyer.clone(),
+            value: accept_offer.offer_amount.parse().unwrap(),
+            seller_address: accept_offer.owner.clone(),
+            created_at: Some(Utc::now().naive_utc()),
+            updated_at: Some(Utc::now().naive_utc()),
+            list_id: accept_offer.list_id.clone(),
+            offer_id: Some(accept_offer.offer_id.clone()),
+            sell_time: Default::default(),
+            expire_time: Default::default(),
+        }
+    }
+}
+
+pub fn event_handle(
+    event: &Vec<BobYardEvent>,
+    event_time: i64,
+    pg: &mut PgConnection,
+) -> Result<()> {
+    let _ = event.into_iter().for_each(|e| {
+        match e {
+            BobYardEvent::List(list) => {
+                let mut list: lists::List = list.into();
+                list.list_time = NaiveDateTime::from_timestamp_millis(event_time as i64).unwrap();
+                info!("list {:?}", list);
+                lists::batch_insert(pg, &vec![list]).expect("batch_insert error");
+            }
+            BobYardEvent::DeList(de_list) => {
+                info!("de_list {:?}", de_list);
+                lists::delete(pg, &de_list.list_id).expect("batch_insert error");
+            }
+            BobYardEvent::Buy(buy) => {
+                // delete the list.
+                lists::delete(pg, &buy.list_id).expect("batch_insert error");
+                // insert the order.
+                let mut order: orders::Order = buy.into();
+                info!("buy {:?}", order);
+                orders::batch_insert(pg, &vec![order]).expect("batch_insert error");
+            }
+            BobYardEvent::AcceptOffer(accept_offer) => {
+                // delete the list.
+                lists::delete(pg, &accept_offer.list_id).expect("batch_insert error");
+                offers::delete(pg, &accept_offer.offer_id).expect("batch_insert error");
+                let mut order: orders::Order = accept_offer.into();
+                info!("accept_offer {:?}", order);
+                orders::batch_insert(pg, &vec![order]).expect("batch_insert error");
+            }
+            BobYardEvent::MakeOffer(make_offer) => {
+                let mut offer_to_db: offers::Offer = make_offer.into();
+                offer_to_db.offer_time =
+                    NaiveDateTime::from_timestamp_millis(event_time as i64).unwrap();
+                info!("offer_to_db {:?}", offer_to_db);
+                offers::batch_insert(pg, &vec![offer_to_db]).expect("batch_insert error");
+            }
+            BobYardEvent::CancelOffer(cancel_offer) => {
+                info!("cancel_offer {:?}", cancel_offer);
+                offers::delete(pg, &cancel_offer.offer_id).expect("batch_insert error");
+            }
+        }
+    });
+
+    Ok(())
 }

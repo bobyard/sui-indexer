@@ -25,3 +25,9 @@ pub fn batch_insert(connection: &mut PgConnection, records: &Vec<List>) -> Resul
         .execute(connection)
         .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
+
+pub fn delete(connection: &mut PgConnection, list_id: &str) -> Result<usize> {
+    diesel::delete(lists::table.filter(lists::list_id.eq(list_id)))
+        .execute(connection)
+        .map_err(|e| anyhow::anyhow!(e.to_string()))
+}

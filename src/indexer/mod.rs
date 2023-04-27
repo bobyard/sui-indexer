@@ -13,7 +13,7 @@ use crate::{fetch_changed_objects, get_object_changes, multi_get_full_transactio
 use sui_sdk::rpc_types::{Checkpoint, SuiEvent, SuiObjectData, SuiTransactionBlockResponse};
 
 use crate::config::Config;
-use crate::handlers::bobyard_event_catch::parse_bob_yard_event;
+use crate::handlers::bobyard_event_catch::{event_handle, parse_bob_yard_event};
 use crate::handlers::collection::{collection_indexer_work, parse_collection};
 use crate::handlers::token::{parse_tokens, token_indexer_work};
 use tracing::{debug, info};
@@ -51,7 +51,7 @@ impl Indexer {
         let mut indexer = query_check_point(&mut self.postgres, 1)? as u64;
 
         loop {
-            let (_check_point_data, transactions, object_changed, events) =
+            let (check_point_data, transactions, object_changed, events) =
                 match self.download_checkpoint_data(indexer).await {
                     Ok(t) => t,
                     Err(e) => {
@@ -61,12 +61,11 @@ impl Indexer {
                     }
                 };
 
-            dbg!(&events);
-
             let collections = parse_collection(&object_changed, &mut redis)?;
             let tokens = parse_tokens(&object_changed, &mut redis)?;
             let bob_yard_events = parse_bob_yard_event(&events, &self.config.bob_yard)?;
 
+            // check_point_data.timestamp_ms
             self.postgres.build_transaction().read_write().run(|conn| {
                 if collections.len() > 0 {
                     collection_indexer_work(&collections, conn).unwrap();
@@ -77,7 +76,8 @@ impl Indexer {
                 }
 
                 if bob_yard_events.len() > 0 {
-                    dbg!(&bob_yard_events);
+                    event_handle(&bob_yard_events, check_point_data.timestamp_ms as i64, conn)
+                        .unwrap();
                 }
 
                 let updated_row = diesel::update(check_point.filter(chain_id.eq(1)))
