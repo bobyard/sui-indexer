@@ -4,6 +4,7 @@ CREATE TABLE tokens (
    "token_id" varchar(255) PRIMARY KEY,
    "collection_id" varchar(255)  NOT NULL,
    "creator_address" varchar(255)  NOT NULL,
+   "collection_type" varchar(255)  NOT NULL,
    "collection_name" varchar(255)  NOT NULL,
    "token_name" varchar(255)  NOT NULL,
    "attributes" text,

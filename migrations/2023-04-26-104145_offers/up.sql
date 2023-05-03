@@ -15,7 +15,6 @@ CREATE TABLE offers (
    "buyer_address" varchar(255) NOT NULL,
    "offer_value" int8 NOT NULL,
    "offer_type" offer_type NOT NULL,
-   "expire_time" timestamp NOT NULL,
    "offer_time" timestamp NOT NULL,
    "created_at" timestamp DEFAULT now(),
    "updated_at" timestamp DEFAULT now()

@@ -4,7 +4,6 @@ use diesel::insert_into;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::lists;
 use diesel_derive_enum::DbEnum;
 
 #[derive(DbEnum, Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]

@@ -177,6 +177,7 @@ diesel::table! {
         token_id -> Varchar,
         collection_id -> Varchar,
         creator_address -> Varchar,
+        collection_type -> Varchar,
         collection_name -> Varchar,
         token_name -> Varchar,
         attributes -> Nullable<Text>,

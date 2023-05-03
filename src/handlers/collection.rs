@@ -50,13 +50,13 @@ pub fn parse_collection(
                     .get(&"description".to_string())
                     .unwrap_or(&"".to_string())
                     .clone();
+                let project_url = kv_set.get(&"project_url".to_string()).cloned();
+
                 //let project_url = kv_set.get(&"project_url".to_string()).unwrap_or(&"".to_string()).clone();
-                let creator = kv_set
-                    .get(&"creator".to_string())
-                    .unwrap_or(&"".to_string())
-                    .clone();
+                let creator = kv_set.get(&"creator".to_string()).cloned();
 
                 let collection_data_in_json = serde_json::to_string(&kv_set).unwrap();
+                let collection_name = object_type.split("::").last().unwrap().to_string();
 
                 let collection = Collection {
                     chain_id: 1,
@@ -64,13 +64,13 @@ pub fn parse_collection(
                     collection_id: object_id,
                     collection_type: object_type,
                     creator_address: sender.clone(),
-                    display_name: None,
-                    website: None,
+                    display_name: creator,
+                    website: project_url,
                     discord: None,
                     twitter: None,
                     icon: None,
                     banner: None,
-                    collection_name: creator,
+                    collection_name,
                     description,
                     supply: 0,
                     version: obj.version.value() as i64,

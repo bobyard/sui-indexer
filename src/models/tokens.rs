@@ -12,6 +12,7 @@ pub struct Token {
     pub token_id: String,
     pub collection_id: String,
     pub creator_address: String,
+    pub collection_type: String,
     pub collection_name: String,
     pub token_name: String,
     pub attributes: Option<String>,

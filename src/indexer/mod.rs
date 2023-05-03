@@ -7,12 +7,14 @@ use futures::future::join_all;
 use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
 
+use crate::models::activities::batch_insert as batch_insert_activities;
 use crate::models::check_point::query_check_point;
 use crate::{fetch_changed_objects, get_object_changes, multi_get_full_transactions, ObjectStatus};
 
 use sui_sdk::rpc_types::{Checkpoint, SuiEvent, SuiObjectData, SuiTransactionBlockResponse};
 
 use crate::config::Config;
+use crate::handlers::activity::parse_tokens_activity;
 use crate::handlers::bobyard_event_catch::{event_handle, parse_bob_yard_event};
 use crate::handlers::collection::{collection_indexer_work, parse_collection};
 use crate::handlers::token::{parse_tokens, token_indexer_work};
@@ -64,6 +66,7 @@ impl Indexer {
             let collections = parse_collection(&object_changed, &mut redis)?;
             let tokens = parse_tokens(&object_changed, &mut redis)?;
             let bob_yard_events = parse_bob_yard_event(&events, &self.config.bob_yard)?;
+            let token_activities = parse_tokens_activity(&bob_yard_events, &tokens);
 
             // check_point_data.timestamp_ms
             self.postgres.build_transaction().read_write().run(|conn| {
@@ -78,6 +81,10 @@ impl Indexer {
                 if bob_yard_events.len() > 0 {
                     event_handle(&bob_yard_events, check_point_data.timestamp_ms as i64, conn)
                         .unwrap();
+                }
+
+                if token_activities.len() > 0 {
+                    batch_insert_activities(conn, &token_activities).unwrap();
                 }
 
                 let updated_row = diesel::update(check_point.filter(chain_id.eq(1)))

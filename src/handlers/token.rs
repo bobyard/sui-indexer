@@ -44,6 +44,7 @@ pub fn parse_tokens(
                                 chain_id: 1,
                                 token_id: obj.object_id.to_string(),
                                 collection_id,
+                                collection_type: object_type.clone(),
                                 creator_address: "".to_string(),
                                 collection_name: "".to_string(),
                                 token_name: name,
@@ -87,7 +88,7 @@ pub fn token_indexer_work(
             None
         })
         .collect::<Vec<(Token, String)>>();
-    if insert_tokens.len() > 1 {
+    if insert_tokens.len() > 0 {
         let (tokens_for_db, _): (Vec<Token>, Vec<String>) =
             insert_tokens.clone().into_iter().unzip();
 
@@ -105,13 +106,13 @@ pub fn token_indexer_work(
     let changed_tokens = tokens
         .iter()
         .filter_map(|(objects, token)| {
-            if *objects == ObjectStatus::Mutated || *objects == ObjectStatus::Wrapped {
+            if *objects == ObjectStatus::Mutated {
                 return Some(token.clone());
             }
             None
         })
         .collect::<Vec<(Token, String)>>();
-    if changed_tokens.len() > 1 {
+    if changed_tokens.len() > 0 {
         let (tokens_for_db, _): (Vec<Token>, Vec<String>) =
             changed_tokens.clone().into_iter().unzip();
 

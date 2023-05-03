@@ -2,10 +2,10 @@ use crate::models::lists::ListType;
 use crate::models::offers::OfferType;
 use crate::models::orders::OrderType;
 use crate::models::{lists, offers, orders};
-use crate::schema::offers::offer_time;
+
 use anyhow::Result;
 use chrono::{NaiveDateTime, Utc};
-use diesel::{PgConnection, RunQueryDsl};
+use diesel::PgConnection;
 use serde::{Deserialize, Serialize};
 use sui_sdk::rpc_types::SuiEvent;
 use tracing::info;
@@ -57,37 +57,37 @@ use tracing::info;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct List {
-    list_id: String,
-    list_item_id: String,
-    expire_time: String,
-    ask: String,
-    owner: String,
+    pub list_id: String,
+    pub list_item_id: String,
+    pub expire_time: String,
+    pub ask: String,
+    pub owner: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeList {
-    list_id: String,
-    list_item_id: String,
-    expire_time: String,
-    ask: String,
-    owner: String,
+    pub list_id: String,
+    pub list_item_id: String,
+    pub expire_time: String,
+    pub ask: String,
+    pub owner: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Buy {
-    list_id: String,
-    ask: String,
-    owner: String,
-    buyer: String,
+    pub list_id: String,
+    pub ask: String,
+    pub owner: String,
+    pub buyer: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AcceptOffer {
-    offer_id: String,
-    list_id: String,
-    offer_amount: String,
-    owner: String,
-    buyer: String,
+    pub offer_id: String,
+    pub list_id: String,
+    pub offer_amount: String,
+    pub owner: String,
+    pub buyer: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -196,7 +196,6 @@ impl From<&Buy> for orders::Order {
             list_id: buy.list_id.clone(),
             offer_id: None,
             sell_time: Default::default(),
-            expire_time: Default::default(),
         }
     }
 }
@@ -237,7 +236,6 @@ impl From<&AcceptOffer> for orders::Order {
             list_id: accept_offer.list_id.clone(),
             offer_id: Some(accept_offer.offer_id.clone()),
             sell_time: Default::default(),
-            expire_time: Default::default(),
         }
     }
 }
@@ -265,6 +263,7 @@ pub fn event_handle(
                 // insert the order.
                 let mut order: orders::Order = buy.into();
                 info!("buy {:?}", order);
+                order.sell_time = NaiveDateTime::from_timestamp_millis(event_time as i64).unwrap();
                 orders::batch_insert(pg, &vec![order]).expect("batch_insert error");
             }
             BobYardEvent::AcceptOffer(accept_offer) => {
@@ -273,6 +272,7 @@ pub fn event_handle(
                 offers::delete(pg, &accept_offer.offer_id).expect("batch_insert error");
                 let mut order: orders::Order = accept_offer.into();
                 info!("accept_offer {:?}", order);
+                order.sell_time = NaiveDateTime::from_timestamp_millis(event_time as i64).unwrap();
                 orders::batch_insert(pg, &vec![order]).expect("batch_insert error");
             }
             BobYardEvent::MakeOffer(make_offer) => {

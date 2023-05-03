@@ -26,7 +26,6 @@ pub struct Order {
     pub buyer_address: String,
     pub order_type: OrderType,
     pub value: i64,
-    pub expire_time: chrono::NaiveDateTime,
     pub sell_time: chrono::NaiveDateTime,
     pub created_at: Option<chrono::NaiveDateTime>,
     pub updated_at: Option<chrono::NaiveDateTime>,
