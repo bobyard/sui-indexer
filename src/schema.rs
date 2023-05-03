@@ -4,6 +4,18 @@ pub mod sql_types {
     #[derive(diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "activity_type"))]
     pub struct ActivityType;
+
+    #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "list_type"))]
+    pub struct ListType;
+
+    #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "offer_type"))]
+    pub struct OfferType;
+
+    #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "order_type"))]
+    pub struct OrderType;
 }
 
 diesel::table! {
@@ -98,6 +110,9 @@ diesel::table! {
 }
 
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::ListType;
+
     lists (id) {
         id -> Int4,
         chain_id -> Int8,
@@ -108,12 +123,16 @@ diesel::table! {
         seller_address -> Varchar,
         seller_value -> Int8,
         expire_time -> Timestamp,
+        list_type -> ListType,
         created_at -> Nullable<Timestamp>,
         updated_at -> Nullable<Timestamp>,
     }
 }
 
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::OfferType;
+
     offers (id) {
         id -> Int4,
         chain_id -> Int8,
@@ -122,6 +141,7 @@ diesel::table! {
         list_id -> Varchar,
         buyer_address -> Varchar,
         offer_value -> Int8,
+        offer_type -> OfferType,
         expire_time -> Timestamp,
         offer_time -> Timestamp,
         created_at -> Nullable<Timestamp>,
@@ -130,6 +150,9 @@ diesel::table! {
 }
 
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::OrderType;
+
     orders (id) {
         id -> Int4,
         chain_id -> Int8,
@@ -140,6 +163,7 @@ diesel::table! {
         seller_address -> Varchar,
         buyer_address -> Varchar,
         value -> Int8,
+        order_type -> OrderType,
         expire_time -> Timestamp,
         sell_time -> Timestamp,
         created_at -> Nullable<Timestamp>,

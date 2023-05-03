@@ -1,8 +1,18 @@
+use crate::schema::orders;
 use anyhow::Result;
 use diesel::insert_into;
 use diesel::prelude::*;
+use diesel_derive_enum::DbEnum;
+use serde::{Deserialize, Serialize};
 
-use crate::schema::orders;
+#[derive(DbEnum, Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
+#[ExistingTypePath = "crate::schema::sql_types::OrderType"]
+#[serde(rename_all = "snake_case")]
+pub enum OrderType {
+    Sold,
+    Offer,
+    Exchange,
+}
 
 #[derive(Insertable, Debug, Clone)]
 #[diesel(table_name = orders)]
@@ -14,6 +24,7 @@ pub struct Order {
     pub offer_id: Option<String>,
     pub seller_address: String,
     pub buyer_address: String,
+    pub order_type: OrderType,
     pub value: i64,
     pub expire_time: chrono::NaiveDateTime,
     pub sell_time: chrono::NaiveDateTime,

@@ -1,3 +1,6 @@
+use crate::models::lists::ListType;
+use crate::models::offers::OfferType;
+use crate::models::orders::OrderType;
 use crate::models::{lists, offers, orders};
 use crate::schema::offers::offer_time;
 use anyhow::Result;
@@ -169,6 +172,7 @@ impl From<&List> for lists::List {
             token_id: list.list_item_id.clone(),
             seller_address: list.owner.clone(),
             seller_value: list.ask.parse().unwrap(),
+            list_type: ListType::Listed,
             expire_time: NaiveDateTime::from_timestamp_millis(list.expire_time.parse().unwrap())
                 .unwrap(),
             created_at: Some(Utc::now().naive_utc()),
@@ -186,6 +190,7 @@ impl From<&Buy> for orders::Order {
             buyer_address: buy.buyer.clone(),
             value: buy.ask.parse().unwrap(),
             seller_address: buy.owner.clone(),
+            order_type: OrderType::Sold,
             created_at: Some(Utc::now().naive_utc()),
             updated_at: Some(Utc::now().naive_utc()),
             list_id: buy.list_id.clone(),
@@ -204,6 +209,7 @@ impl From<&MakeOffer> for offers::Offer {
             offer_id: make_offer.offer_id.clone(),
             list_id: make_offer.list_id.clone(),
             buyer_address: make_offer.owner.clone(),
+            offer_type: OfferType::Listed,
             offer_value: make_offer.offer_amount.parse().unwrap(),
             expire_time: NaiveDateTime::from_timestamp_millis(
                 make_offer.expire_time.parse().unwrap(),
@@ -225,6 +231,7 @@ impl From<&AcceptOffer> for orders::Order {
             buyer_address: accept_offer.buyer.clone(),
             value: accept_offer.offer_amount.parse().unwrap(),
             seller_address: accept_offer.owner.clone(),
+            order_type: OrderType::Offer,
             created_at: Some(Utc::now().naive_utc()),
             updated_at: Some(Utc::now().naive_utc()),
             list_id: accept_offer.list_id.clone(),
