@@ -164,7 +164,6 @@ diesel::table! {
         buyer_address -> Varchar,
         value -> Int8,
         order_type -> OrderType,
-        expire_time -> Timestamp,
         sell_time -> Timestamp,
         created_at -> Nullable<Timestamp>,
         updated_at -> Nullable<Timestamp>,

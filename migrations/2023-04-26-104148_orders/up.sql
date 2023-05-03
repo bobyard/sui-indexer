@@ -16,7 +16,7 @@ CREATE TABLE orders (
     "buyer_address" varchar(255) NOT NULL,
     "value" int8 NOT NULL,
     "order_type" order_type NOT NULL,
-    "expire_time" timestamp NOT NULL,
+
     "sell_time" timestamp NOT NULL,
     "created_at" timestamp DEFAULT now(),
     "updated_at" timestamp DEFAULT now()

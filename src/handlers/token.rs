@@ -140,13 +140,6 @@ pub fn token_indexer_work(
 
         batch_change_tokens(pg, &tokens_for_db)
             .map_err(|e| anyhow!("BatchChangeTokens failed {}", e.to_string()))?;
-
-        let transfer_activitis = changed_tokens
-            .iter()
-            .map(|token| Activity::new_from_token_with_type(ActivityType::Transferred, token))
-            .collect::<Vec<Activity>>();
-        batch_insert_activities(pg, &transfer_activitis)
-            .map_err(|e| anyhow!("BatchInsertActivities failed {}", e.to_string()))?;
     }
 
     Ok(())

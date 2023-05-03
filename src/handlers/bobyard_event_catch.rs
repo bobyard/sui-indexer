@@ -76,6 +76,7 @@ pub struct DeList {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Buy {
     pub list_id: String,
+    pub item_id: String,
     pub ask: String,
     pub owner: String,
     pub buyer: String,
@@ -85,6 +86,7 @@ pub struct Buy {
 pub struct AcceptOffer {
     pub offer_id: String,
     pub list_id: String,
+    pub item_id: String,
     pub offer_amount: String,
     pub owner: String,
     pub buyer: String,
