@@ -3,6 +3,14 @@ name = "sui-indexer"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "sui-indexer"
+path = "src/main.rs"
+
+[[bin]]
+name = "sui-cdn"
+path = "src/cdn/main.rs"
+
 [dependencies]
 tokio = { version = "1.27.0", features = ["full"] }
 diesel = { version = "2.0.0", features = ["postgres"] }
@@ -17,3 +25,7 @@ chrono = "0.4.24"
 redis = { version = "0.23.0", features = ["tokio-comp"] }
 diesel-derive-enum = { version = "2.0.1", features = ["postgres"] }
 structopt = "0.3.26"
+
+rusoto_core = "0.48.0"
+rusoto_sqs = "0.48.0"
+rusoto_s3 = "0.48.0"
