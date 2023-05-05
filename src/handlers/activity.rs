@@ -93,8 +93,7 @@ pub fn parse_tokens_activity(
             }
         });
         if !have {
-            let list_act =
-                Activity::new_from_token_with_type(ActivityType::Transferred, &token);
+            let list_act = Activity::new_from_token_with_type(ActivityType::Transferred, &token);
             activity.push(list_act);
         }
     });

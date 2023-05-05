@@ -1,29 +1,30 @@
-use rusoto_core::{Region, RusotoError};
-use rusoto_s3::{PutObjectRequest, S3Client, S3};
-use std::fs::File;
-use std::io::Read;
+mod aws;
+
+use anyhow::Result;
+use bytes::Buf;
+use dotenv::dotenv;
 
 #[tokio::main]
-async fn main() {
-    let bucket_name = "your-bucket-name";
-    let object_key = "your-object-key";
-    let file_path = "./README.md";
+async fn main() -> Result<()> {
+    dotenv().ok();
+    let mut s3 = aws::S3Store::new();
 
-    let mut file = File::open(file_path).unwrap();
-    let mut file_data = Vec::new();
-    file.read_to_end(&mut file_data).unwrap();
+    let bytes = read_to_buffer(
+        "https://gateway.pinata.cloud/ipfs/QmXiSJPXJ8mf9LHijv6xFH1AtGef4h8v5VPEKZgjR4nzvM",
+    )
+    .await?;
 
-    let client = S3Client::new(Region::default());
-    let request = PutObjectRequest {
-        bucket: bucket_name.to_owned(),
-        key: object_key.to_owned(),
-        body: Some(file_data.into()),
-        ..Default::default()
-    };
+    s3.upload_images_to_s3("test".to_string(), bytes).await?;
 
-    match client.put_object(request).await {
-        Ok(_) => println!("Image uploaded successfully"),
-        Err(e) => println!("Error uploading image: {:?}", e),
-    }
+    Ok(())
 }
 
+async fn read_to_buffer(url: &str) -> Result<Vec<u8>> {
+    let response = reqwest::get(url).await?;
+    let bytes = response.bytes().await?;
+    let mut buffer = Vec::new();
+    let mut reader = bytes.reader();
+    let _ = std::io::copy(&mut reader, &mut buffer)?;
+
+    Ok(buffer)
+}
