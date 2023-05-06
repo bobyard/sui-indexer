@@ -3,7 +3,7 @@ use image::io::Reader as ImageReader;
 use lazy_static::lazy_static;
 use rusoto_core::credential::StaticProvider;
 use rusoto_core::{Client, Region, RusotoError};
-use rusoto_s3::{PutObjectRequest, S3Client, S3};
+use rusoto_s3::{GetObjectRequest, PutObjectRequest, S3Client, S3};
 use std::fs::File;
 use std::io::Cursor;
 use std::io::Read;
@@ -15,12 +15,15 @@ const BUCKET: &str = "bobyard";
 
 lazy_static! {
     static ref KEY: String =
-        { std::env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID must be set") };
-    static ref SECTRYKEY: String =
-        { std::env::var("AWS_SECRET_ACCESS_KEY").expect("AWS_SECRET_ACCESS_KEY must be set") };
+        std::env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID must be set");
 }
 
-pub(crate) struct S3Store {
+lazy_static! {
+    static ref SECTRYKEY: String =
+        std::env::var("AWS_SECRET_ACCESS_KEY").expect("AWS_SECRET_ACCESS_KEY must be set");
+}
+
+pub struct S3Store {
     bucket_name: String,
     client: S3Client,
 }
@@ -46,14 +49,31 @@ impl S3Store {
         }
     }
 
+    pub async fn find_exist_in_s3(&mut self, object_key: String) -> Result<()> {
+        let request = GetObjectRequest {
+            bucket: self.bucket_name.to_owned(),
+            key: object_key.to_owned(),
+            ..Default::default()
+        };
+
+        let _ = self.client.get_object(request).await?;
+        Ok(())
+    }
+
     pub async fn upload_images_to_s3(
         &mut self,
         object_key: String,
         file_data: Vec<u8>,
     ) -> Result<()> {
         let img = image::guess_format(&file_data)?;
-        let ext = img.extensions_str().get(0).unwrap();
-        let mine = mime_guess::from_ext(ext).first().unwrap().to_string();
+        let ext = img
+            .extensions_str()
+            .get(0)
+            .ok_or(anyhow!("Can't get extensions for the file"))?;
+        let mine = mime_guess::from_ext(ext)
+            .first()
+            .ok_or(anyhow!("Can't guess the mine for ext"))?
+            .to_string();
 
         let request = PutObjectRequest {
             bucket: self.bucket_name.to_owned(),

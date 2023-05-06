@@ -57,10 +57,14 @@ pub fn parse_tokens(
                                 metadata_uri: image_url,
                                 metadata_json: Some(display_json),
                                 image: None,
-                                created_at: NaiveDateTime::from_timestamp_millis(*timestamp as i64)
-                                    .unwrap(),
-                                updated_at: NaiveDateTime::from_timestamp_millis(*timestamp as i64)
-                                    .unwrap(),
+                                created_at: Some(
+                                    NaiveDateTime::from_timestamp_millis(*timestamp as i64)
+                                        .unwrap(),
+                                ),
+                                updated_at: Some(
+                                    NaiveDateTime::from_timestamp_millis(*timestamp as i64)
+                                        .unwrap(),
+                                ),
                             },
                             sender.clone(),
                         ),
