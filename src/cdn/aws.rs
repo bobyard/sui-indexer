@@ -64,22 +64,27 @@ impl S3Store {
         &mut self,
         object_key: String,
         file_data: Vec<u8>,
+        mut mime: Option<String>,
     ) -> Result<()> {
-        let img = image::guess_format(&file_data)?;
-        let ext = img
-            .extensions_str()
-            .get(0)
-            .ok_or(anyhow!("Can't get extensions for the file"))?;
-        let mine = mime_guess::from_ext(ext)
-            .first()
-            .ok_or(anyhow!("Can't guess the mine for ext"))?
-            .to_string();
+        if mime.is_none() {
+            let img = image::guess_format(&file_data)?;
+            let ext = img
+                .extensions_str()
+                .get(0)
+                .ok_or(anyhow!("Can't get extensions for the file"))?;
+            let guest_mine = mime_guess::from_ext(ext)
+                .first()
+                .ok_or(anyhow!("Can't guess the mine for ext"))?
+                .to_string();
+
+            mime = Some(guest_mine);
+        }
 
         let request = PutObjectRequest {
             bucket: self.bucket_name.to_owned(),
             key: object_key.to_owned(),
             body: Some(file_data.into()),
-            content_type: Some(mine),
+            content_type: mime,
             ..Default::default()
         };
 

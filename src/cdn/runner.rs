@@ -10,12 +10,18 @@ use tracing::error;
 use sui_indexer::models;
 use sui_indexer::models::tokens::{query_the_uncache_images, update_image_url};
 
+const IPFS_GATEWAY: &str = "https://cloudflare-ipfs.com/ipfs/";
+
 pub async fn run(s3: &mut S3Store, pg: &mut PgConnection) -> Result<()> {
     let uncache = query_the_uncache_images(pg)?;
 
     for item in &uncache {
-        let url = item.metadata_uri.clone();
+        let mut url = item.metadata_uri.clone();
         let mut img: Option<String> = None;
+
+        if url.starts_with("ipfs://") {
+            url = IPFS_GATEWAY.to_string() + url.strip_prefix("ipfs://").unwrap();
+        }
 
         if url != "" {
             let buffer = match read_to_buffer(&url).await {
@@ -30,8 +36,14 @@ pub async fn run(s3: &mut S3Store, pg: &mut PgConnection) -> Result<()> {
             let name = blake3::hash(&buffer);
             let res = s3.find_exist_in_s3(name.to_string()).await;
             if res.is_err() {
+                let mine = if url.ends_with(".svg") {
+                    Some("image/svg+xml".to_string())
+                } else {
+                    None
+                };
+
                 //not exist in s3, we upload it
-                let res = s3.upload_images_to_s3(name.to_string(), buffer).await;
+                let res = s3.upload_images_to_s3(name.to_string(), buffer, mine).await;
                 if res.is_ok() {
                     img = Some(name.to_string());
                 } else {
