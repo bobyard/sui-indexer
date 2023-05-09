@@ -5,7 +5,7 @@ use anyhow::Result;
 use diesel::{Connection, PgConnection};
 
 use dotenv::dotenv;
-use tokio::select;
+
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 #[tokio::main]

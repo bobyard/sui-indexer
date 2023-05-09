@@ -6,12 +6,12 @@ use crate::ObjectStatus;
 use anyhow::{anyhow, Result};
 use chrono::NaiveDateTime;
 use diesel::PgConnection;
-use redis::Commands;
+use std::collections::HashMap;
 use sui_sdk::rpc_types::SuiObjectData;
 
 pub fn parse_tokens(
     object_changes: &Vec<(ObjectStatus, SuiObjectData, String, u64)>,
-    con: &mut redis::Connection,
+    coll_set: &mut HashMap<String, String>,
 ) -> Result<Vec<(ObjectStatus, (Token, String))>> {
     let tokens = object_changes
         .into_iter()
@@ -19,8 +19,7 @@ pub fn parse_tokens(
             let object_type = obj.type_.as_ref().unwrap().clone().to_string();
             if let Some(display) = &obj.display {
                 if let Some(kv_set) = &display.data {
-                    dbg!(kv_set);
-                    let collection_id = con.hget("collections", object_type.clone()).unwrap();
+                    let collection_id = coll_set.get(&object_type).expect("Collection not found");
 
                     let name = kv_set
                         .get(&"name".to_string())
@@ -43,7 +42,7 @@ pub fn parse_tokens(
                             Token {
                                 chain_id: 1,
                                 token_id: obj.object_id.to_string(),
-                                collection_id,
+                                collection_id: collection_id.to_string(),
                                 collection_type: object_type.clone(),
                                 creator_address: "".to_string(),
                                 collection_name: "".to_string(),

@@ -6,11 +6,13 @@ use anyhow::Result;
 use chrono::{NaiveDateTime, Utc};
 use diesel::PgConnection;
 use redis::Commands;
+use std::collections::HashMap;
 use sui_sdk::rpc_types::{SuiObjectData, SuiParsedData};
 
 pub fn parse_collection(
     object_changes: &Vec<(ObjectStatus, SuiObjectData, String, u64)>,
     con: &mut redis::Connection,
+    coll_set: &mut HashMap<String, String>,
 ) -> Result<Vec<(ObjectStatus, Collection)>> {
     Ok(object_changes
         .into_iter()
@@ -28,6 +30,7 @@ pub fn parse_collection(
                 let _: () = con
                     .hset("collections", object_type.clone(), object_id.clone())
                     .unwrap();
+                coll_set.insert(object_type.clone(), object_id.clone());
 
                 let content = obj.content.as_ref().unwrap();
                 let kv = match content {

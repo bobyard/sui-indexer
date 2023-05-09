@@ -1,13 +1,11 @@
 use crate::aws::S3Store;
 use anyhow::Result;
 use bytes::Buf;
-use diesel::connection::DefaultLoadingMode;
-use diesel::{ExpressionMethods, PgConnection, QueryDsl, QueryResult, RunQueryDsl};
-use sui_indexer::models::tokens as model_tokens;
-use sui_indexer::schema::tokens::dsl::*;
+
+use diesel::PgConnection;
+
 use tracing::error;
 
-use sui_indexer::models;
 use sui_indexer::models::tokens::{query_the_uncache_images, update_image_url};
 
 const IPFS_GATEWAY: &str = "https://cloudflare-ipfs.com/ipfs/";

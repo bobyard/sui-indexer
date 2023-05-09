@@ -1,14 +1,9 @@
 use anyhow::{anyhow, Result};
-use image::io::Reader as ImageReader;
+
 use lazy_static::lazy_static;
 use rusoto_core::credential::StaticProvider;
-use rusoto_core::{Client, Region, RusotoError};
+use rusoto_core::Region;
 use rusoto_s3::{GetObjectRequest, PutObjectRequest, S3Client, S3};
-use std::fs::File;
-use std::io::Cursor;
-use std::io::Read;
-
-use dotenv::dotenv;
 
 const REGION: Region = Region::UsWest1;
 const BUCKET: &str = "bobyard";

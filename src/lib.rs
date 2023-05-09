@@ -36,8 +36,11 @@ pub enum ObjectStatus {
 }
 
 pub async fn run(cfg: Config) -> Result<()> {
-    let sui = SuiClientBuilder::default().build(&cfg.node).await?;
-    let pg = PgConnection::establish(&cfg.postgres)?;
+    let sui = SuiClientBuilder::default()
+        .build(&cfg.node)
+        .await
+        .map_err(|e| anyhow!("Pg: {e}"))?;
+    let pg = PgConnection::establish(&cfg.postgres).map_err(|e| anyhow!("Pg: {e}"))?;
     let redis = redis::Client::open(&*cfg.redis)?;
 
     Indexer::new(cfg, sui, pg, redis).start().await

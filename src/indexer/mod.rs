@@ -4,6 +4,8 @@ use diesel::ExpressionMethods;
 use diesel::QueryDsl;
 use diesel::RunQueryDsl;
 use futures::future::join_all;
+use redis::Commands;
+use std::collections::HashMap;
 use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
 
@@ -51,6 +53,7 @@ impl Indexer {
     pub async fn start(&mut self) -> Result<()> {
         let mut redis = self.redis.get_connection()?;
         let mut indexer = query_check_point(&mut self.postgres, 1)? as u64;
+        let mut collects_set: HashMap<String, String> = redis.hgetall("collections")?;
 
         loop {
             let (check_point_data, transactions, object_changed, events) =
@@ -63,8 +66,8 @@ impl Indexer {
                     }
                 };
 
-            let collections = parse_collection(&object_changed, &mut redis)?;
-            let tokens = parse_tokens(&object_changed, &mut redis)?;
+            let collections = parse_collection(&object_changed, &mut redis, &mut collects_set)?;
+            let tokens = parse_tokens(&object_changed, &mut collects_set)?;
             let bob_yard_events = parse_bob_yard_event(&events, &self.config.bob_yard)?;
             let token_activities = parse_tokens_activity(&bob_yard_events, &tokens);
 
