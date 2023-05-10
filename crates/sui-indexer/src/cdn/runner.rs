@@ -34,8 +34,16 @@ pub async fn run(s3: &mut S3Store, pg: &mut PgConnection) -> Result<()> {
             let name = blake3::hash(&buffer);
             let res = s3.find_exist_in_s3(name.to_string()).await;
             if res.is_err() {
-                let mine = if url.ends_with(".svg") {
+                let mine = if url.ends_with("svg") {
                     Some("image/svg+xml".to_string())
+                } else if url.ends_with("png") {
+                    Some("image/png".to_string())
+                } else if url.ends_with("jpg") || url.ends_with("jpeg") {
+                    Some("image/jpeg".to_string())
+                } else if url.ends_with("gif") {
+                    Some("image/gif".to_string())
+                } else if url.ends_with("webp") {
+                    Some("image/webp".to_string())
                 } else {
                     None
                 };

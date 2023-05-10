@@ -1,6 +1,6 @@
 use crate::models::activities::{batch_insert as batch_insert_activities, Activity, ActivityType};
 use crate::models::tokens::{
-    batch_change as batch_change_tokens, batch_insert as batch_insert_tokens, Token,
+    batch_change as batch_change_tokens, batch_insert as batch_insert_tokens, delete, Token,
 };
 use crate::ObjectStatus;
 use anyhow::{anyhow, Result};
@@ -143,6 +143,22 @@ pub fn token_indexer_work(
 
         batch_change_tokens(pg, &tokens_for_db)
             .map_err(|e| anyhow!("BatchChangeTokens failed {}", e.to_string()))?;
+    }
+
+    let deleted_tokens = tokens
+        .iter()
+        .filter_map(|(objects, token)| {
+            if *objects == ObjectStatus::Deleted || *objects == ObjectStatus::UnwrappedThenDeleted {
+                return Some(token.clone());
+            }
+            None
+        })
+        .collect::<Vec<(Token, String)>>();
+    if deleted_tokens.len() > 0 {
+        for t in deleted_tokens {
+            delete(pg, &t.0.token_id)
+                .map_err(|e| anyhow!("DeleteTokens failed {}", e.to_string()))?;
+        }
     }
 
     Ok(())

@@ -13,4 +13,6 @@ pub struct Config {
     pub redis: String,
     #[structopt(short, long)]
     pub bob_yard: String,
+    #[structopt(short, long, default_value = "amqp://127.0.0.1:5672/%2f")]
+    pub mq: String,
 }

@@ -1,3 +1,5 @@
+pub mod receiver;
+
 use anyhow::{Error, Result};
 use diesel::pg::PgConnection;
 use diesel::ExpressionMethods;
@@ -8,6 +10,7 @@ use redis::Commands;
 use std::collections::HashMap;
 use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
+use tokio::sync::mpsc::Sender;
 
 use crate::models::activities::batch_insert as batch_insert_activities;
 use crate::models::check_point::query_check_point;
@@ -20,6 +23,7 @@ use crate::handlers::activity::parse_tokens_activity;
 use crate::handlers::bobyard_event_catch::{event_handle, parse_bob_yard_event};
 use crate::handlers::collection::{collection_indexer_work, parse_collection};
 use crate::handlers::token::{parse_tokens, token_indexer_work};
+use crate::indexer::receiver::IndexingMessage;
 use tracing::{debug, info};
 
 extern crate redis;
@@ -33,6 +37,7 @@ pub(crate) struct Indexer {
     sui_client: SuiClient,
     postgres: PgConnection,
     redis: redis::Client,
+    sender: Sender<IndexingMessage>,
 }
 
 impl Indexer {
@@ -41,12 +46,14 @@ impl Indexer {
         sui_client: SuiClient,
         postgres: PgConnection,
         redis: redis::Client,
+        sender: Sender<IndexingMessage>,
     ) -> Self {
         Self {
             config,
             sui_client,
             postgres,
             redis,
+            sender,
         }
     }
 

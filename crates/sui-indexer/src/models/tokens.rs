@@ -1,49 +1,13 @@
+use crate::schema::tokens;
 use anyhow::Result;
 use diesel::insert_into;
 use diesel::prelude::*;
 use diesel::upsert::excluded;
+use serde::{Deserialize, Serialize};
 
-use crate::schema::tokens;
-
-#[derive(Insertable, Queryable, PartialEq, Debug, Clone)]
+#[derive(Insertable, Queryable, PartialEq, Debug, Clone, Serialize, Deserialize)]
 #[diesel(table_name = tokens)]
 pub struct Token {
-    // pub chain_id: i64,
-    // pub token_id: String,
-    // pub collection_id: String,
-    // pub creator_address: String,
-    // pub collection_type: String,
-    // pub collection_name: String,
-    // pub token_name: String,
-    // pub attributes: Option<String>,
-    // pub version: i64,
-    // pub payee_address: String,
-    // pub royalty_points_numerator: i64,
-    // pub royalty_points_denominator: i64,
-    // pub owner_address: Option<String>,
-    // pub metadata_uri: String,
-    // pub metadata_json: Option<String>,
-    // pub image: Option<String>,
-    // pub created_at: chrono::NaiveDateTime,
-    // pub updated_at: chrono::NaiveDateTime,
-    // chain_id -> Int8,
-    // token_id -> Varchar,
-    // collection_id -> Varchar,
-    // creator_address -> Varchar,
-    // collection_type -> Varchar,
-    // collection_name -> Varchar,
-    // token_name -> Varchar,
-    // attributes -> Nullable<Text>,
-    // version -> Int8,
-    // payee_address -> Varchar,
-    // royalty_points_numerator -> Int8,
-    // royalty_points_denominator -> Int8,
-    // owner_address -> Nullable<Varchar>,
-    // metadata_uri -> Varchar,
-    // metadata_json -> Nullable<Varchar>,
-    // image -> Nullable<Varchar>,
-    // created_at -> Nullable<Timestamp>,
-    // updated_at -> Nullable<Timestamp>,
     pub chain_id: i64,
     pub token_id: String,
     pub collection_id: String,
@@ -119,4 +83,10 @@ pub fn update_image_url(
         .get_result::<Token>(connection)?;
 
     Ok(())
+}
+
+pub fn delete(connection: &mut PgConnection, token_id: &str) -> Result<usize> {
+    diesel::delete(tokens::table.filter(tokens::token_id.eq(token_id)))
+        .execute(connection)
+        .map_err(|e| anyhow::anyhow!(e.to_string()))
 }

@@ -110,6 +110,9 @@ pub fn collection_indexer_work(
             None
         })
         .collect::<Vec<Collection>>();
+    if insert_collections.is_empty() {
+        return Ok(());
+    }
 
     batch_insert(pg, &insert_collections)?;
     let created_activities = insert_collections

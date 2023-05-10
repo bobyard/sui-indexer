@@ -1,12 +1,13 @@
-mod aws;
-mod runner;
-
 use anyhow::Result;
 use diesel::{Connection, PgConnection};
-
 use dotenv::dotenv;
-
+use lapin::ConnectionProperties;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
+
+mod aws;
+mod worker;
+
+use crate::worker::Worker;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -26,10 +27,13 @@ async fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let mut s3 = aws::S3Store::new();
+
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let mut pg = PgConnection::establish(&database_url)?;
-    loop {
-        runner::run(&mut s3, &mut pg).await?;
-        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-    }
+
+    let rabbit_uri = std::env::var("RABBITMQ_URI").expect("RABBITMQ_URI must be set");
+    let conn = lapin::Connection::connect(&rabbit_uri, ConnectionProperties::default()).await?;
+
+    let mut worker = Worker::new(s3, pg, conn);
+    worker.start().await
 }

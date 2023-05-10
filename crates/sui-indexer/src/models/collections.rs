@@ -1,10 +1,11 @@
 use anyhow::Result;
 use diesel::insert_into;
 use diesel::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::schema::collections;
 
-#[derive(Insertable, Debug, Clone)]
+#[derive(Insertable, Debug, Clone, Serialize, Deserialize)]
 #[diesel(table_name = collections)]
 pub struct Collection {
     pub chain_id: i32,

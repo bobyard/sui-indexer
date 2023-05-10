@@ -12,6 +12,7 @@ use diesel::Connection;
 use futures::future::join_all;
 use futures::FutureExt;
 use indexer::Indexer;
+use lapin::ConnectionProperties;
 use sui_sdk::apis::ReadApi;
 use sui_sdk::rpc_types::SuiTransactionBlockData::V1;
 use sui_sdk::rpc_types::{
@@ -21,6 +22,7 @@ use sui_sdk::rpc_types::{
 use sui_sdk::types::digests::TransactionDigest;
 use sui_sdk::SuiClientBuilder;
 
+use crate::indexer::receiver::{IndexSender, IndexingMessage};
 use sui_sdk::types::base_types::{ObjectID, SequenceNumber};
 
 const MULTI_GET_CHUNK_SIZE: usize = 500;
@@ -42,8 +44,18 @@ pub async fn run(cfg: Config) -> Result<()> {
         .map_err(|e| anyhow!("Pg: {e}"))?;
     let pg = PgConnection::establish(&cfg.postgres).map_err(|e| anyhow!("Pg: {e}"))?;
     let redis = redis::Client::open(&*cfg.redis)?;
+    let conn = lapin::Connection::connect(&cfg.mq, ConnectionProperties::default()).await?;
 
-    Indexer::new(cfg, sui, pg, redis).start().await
+    let (send, recv) = tokio::sync::mpsc::channel::<IndexingMessage>(1000);
+    tokio::spawn(async move {
+        let mut receiver = IndexSender::new(recv, conn);
+        receiver
+            .process()
+            .await
+            .expect("Unexpected error in receiver");
+    });
+
+    Indexer::new(cfg, sui, pg, redis, send).start().await
 }
 
 pub async fn multi_get_full_transactions(
