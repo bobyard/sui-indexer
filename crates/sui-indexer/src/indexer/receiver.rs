@@ -29,6 +29,9 @@ pub struct IndexSender {
     rabbitmq: Connection,
 }
 
+pub const TOKEN_EXCHANGE: &str = "token";
+pub const COLLECTION_EXCHANGE: &str = "collection";
+
 impl IndexSender {
     pub fn new(receiver: Receiver<IndexingMessage>, conn: Connection) -> Self {
         Self {
@@ -38,31 +41,20 @@ impl IndexSender {
     }
 
     pub async fn process(&mut self) -> Result<()> {
-        let channel = self.rabbitmq.create_channel().await?;
+        let mut channel = self.rabbitmq.create_channel().await?;
+        let _ = match create_exchange(channel).await {
+            Ok(_) => info!("exchange created"),
+            Err(e) => info!("error creating exchange: {}", e),
+        };
 
-        let _ = channel
-            .exchange_declare(
-                "collection",
-                ExchangeKind::Topic,
-                ExchangeDeclareOptions::default(),
-                FieldTable::default(),
-            )
-            .await;
-        let _ = channel
-            .exchange_declare(
-                "token",
-                ExchangeKind::Topic,
-                ExchangeDeclareOptions::default(),
-                FieldTable::default(),
-            )
-            .await;
+        let mut channel = self.rabbitmq.create_channel().await?;
 
         while let Some(msg) = self.receiver.recv().await {
             match msg {
                 IndexingMessage::Collection((message, collection)) => {
                     info!("Collection: {:?}", &collection);
                     let payload = serde_json::to_vec(&collection)
-                        .expect("serd collection to json failed")
+                        .expect("send collection to json failed")
                         .clone();
                     channel
                         .basic_publish(
@@ -76,12 +68,12 @@ impl IndexSender {
                 }
                 IndexingMessage::Token((message, token)) => {
                     let payload = serde_json::to_vec(&token)
-                        .expect("serd collection to json failed")
+                        .expect("send collection to json failed")
                         .clone();
                     channel
                         .basic_publish(
                             "",
-                            "token::*",
+                            "token.*",
                             BasicPublishOptions::default(),
                             &payload,
                             BasicProperties::default(),
@@ -94,4 +86,32 @@ impl IndexSender {
 
         Ok(())
     }
+}
+
+pub async fn create_exchange(channel: lapin::Channel) -> Result<()> {
+    let mut opt = ExchangeDeclareOptions::default();
+    opt.durable = true;
+
+    let _ = channel
+        .exchange_declare(
+            COLLECTION_EXCHANGE,
+            ExchangeKind::Topic,
+            opt,
+            FieldTable::default(),
+        )
+        .await?;
+
+    let mut opt = ExchangeDeclareOptions::default();
+    opt.durable = true;
+    let _ = channel
+        .exchange_declare(
+            TOKEN_EXCHANGE,
+            ExchangeKind::Topic,
+            opt,
+            FieldTable::default(),
+        )
+        .await?;
+
+    channel.clone();
+    Ok(())
 }

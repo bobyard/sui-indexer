@@ -1,11 +1,14 @@
 use crate::aws::S3Store;
 use anyhow::Result;
 use diesel::PgConnection;
+use futures::future::join_all;
 use futures::StreamExt;
 use lapin::options::{BasicAckOptions, ExchangeDeclareOptions};
 use lapin::types::FieldTable;
 use lapin::{Connection, ExchangeKind};
+use sui_indexer::indexer::receiver::create_exchange;
 
+use crate::token_worker::handle_token_create;
 use sui_indexer::models::tokens::Token;
 
 pub struct Worker {
@@ -21,61 +24,15 @@ impl Worker {
 
     pub async fn start(&mut self) -> Result<()> {
         let mut channel = self.mq.create_channel().await?;
-        let _ = channel
-            .queue_declare(
-                "token::create",
-                lapin::options::QueueDeclareOptions::default(),
-                lapin::types::FieldTable::default(),
-            )
-            .await?;
-        let _ = channel
-            .queue_bind(
-                "token::create",
-                "token",
-                "token",
-                lapin::options::QueueBindOptions::default(),
-                lapin::types::FieldTable::default(),
-            )
-            .await?;
-        let _ = channel
-            .exchange_declare(
-                "collection",
-                ExchangeKind::Topic,
-                ExchangeDeclareOptions::default(),
-                FieldTable::default(),
-            )
-            .await;
-        let _ = channel
-            .exchange_declare(
-                "token",
-                ExchangeKind::Topic,
-                ExchangeDeclareOptions::default(),
-                FieldTable::default(),
-            )
-            .await;
+        let _ = match create_exchange(channel).await {
+            Ok(_) => tracing::info!("exchange created"),
+            Err(e) => tracing::info!("error creating exchange: {}", e),
+        };
 
-        let mut consumer = channel
-            .basic_consume(
-                "token::create",
-                "token",
-                lapin::options::BasicConsumeOptions::default(),
-                lapin::types::FieldTable::default(),
-            )
-            .await?;
-        while let Some(delivery) = consumer.next().await {
-            let delivery = delivery.expect("error in consumer");
-
-            dbg!(&delivery);
-            let t = match serde_json::from_slice::<Token>(&delivery.data) {
-                Ok(t) => t,
-                Err(e) => {
-                    tracing::error!("error deserializing token: {}", e);
-                    continue;
-                }
-            };
-
-            delivery.ack(BasicAckOptions::default()).await.expect("ack");
-        }
+        let mut channel = self.mq.create_channel().await?;
+        //tokio::spawn(handle_create(channel));
+        handle_token_create(channel).await?;
+        //join_all(vec![handle_create(&mut channel)]).await?;
 
         Ok(())
     }

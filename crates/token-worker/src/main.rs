@@ -5,6 +5,7 @@ use lapin::ConnectionProperties;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 mod aws;
+mod token_worker;
 mod worker;
 
 use crate::worker::Worker;
