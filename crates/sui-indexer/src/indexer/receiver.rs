@@ -81,7 +81,7 @@ impl IndexSender {
                     channel
                         .basic_publish(
                             "",
-                            "token",
+                            "token::*",
                             BasicPublishOptions::default(),
                             &payload,
                             BasicProperties::default(),
