@@ -8,6 +8,7 @@ use diesel::RunQueryDsl;
 use futures::future::join_all;
 use redis::Commands;
 use std::collections::HashMap;
+
 use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
 use tokio::sync::mpsc::Sender;
@@ -23,7 +24,7 @@ use crate::handlers::activity::parse_tokens_activity;
 use crate::handlers::bobyard_event_catch::{event_handle, parse_bob_yard_event};
 use crate::handlers::collection::{collection_indexer_work, parse_collection};
 use crate::handlers::token::{parse_tokens, token_indexer_work};
-use crate::indexer::receiver::IndexingMessage;
+use crate::indexer::receiver::{IndexingMessage, Message};
 use tracing::{debug, info};
 
 extern crate redis;
@@ -77,6 +78,21 @@ impl Indexer {
             let tokens = parse_tokens(&object_changed, &mut collects_set)?;
             let bob_yard_events = parse_bob_yard_event(&events, &self.config.bob_yard)?;
             let token_activities = parse_tokens_activity(&bob_yard_events, &tokens);
+
+            for (_, collection) in collections.iter() {
+                self.sender
+                    .send(IndexingMessage::Collection((
+                        Message::Create,
+                        collection.clone(),
+                    )))
+                    .await?;
+            }
+
+            for (_, t) in tokens.iter() {
+                self.sender
+                    .send(IndexingMessage::Token((Message::Create, t.0.clone())))
+                    .await?;
+            }
 
             // check_point_data.timestamp_ms
             self.postgres.build_transaction().read_write().run(|conn| {

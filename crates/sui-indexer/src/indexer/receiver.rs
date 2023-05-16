@@ -10,6 +10,7 @@ use tokio::select;
 use tokio::sync::mpsc::Receiver;
 use tracing::info;
 
+#[derive(Debug, Clone)]
 pub enum Message {
     Create,
     Delete,
@@ -19,6 +20,20 @@ pub enum Message {
     UnwrapThenDelete,
 }
 
+impl Message {
+    pub fn to_str(&self) -> &str {
+        match self {
+            Message::Create => "create",
+            Message::Delete => "delete",
+            Message::Update => "update",
+            Message::Wrap => "wrap",
+            Message::Unwrap => "unwrap",
+            Message::UnwrapThenDelete => "unwrap_then_delete",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum IndexingMessage {
     Collection((Message, Collection)),
     Token((Message, Token)),
@@ -58,7 +73,7 @@ impl IndexSender {
                         .clone();
                     channel
                         .basic_publish(
-                            "",
+                            "collection",
                             "collection",
                             BasicPublishOptions::default(),
                             &payload,
@@ -67,19 +82,23 @@ impl IndexSender {
                         .await?;
                 }
                 IndexingMessage::Token((message, token)) => {
+                    info!("tokens: {:?}", &token);
+
                     let payload = serde_json::to_vec(&token)
                         .expect("send collection to json failed")
                         .clone();
+                    let rk = format!("token.{}", message.to_str());
+
+                    dbg!(&rk);
                     channel
                         .basic_publish(
-                            "",
-                            "token.*",
+                            TOKEN_EXCHANGE,
+                            &rk,
                             BasicPublishOptions::default(),
                             &payload,
                             BasicProperties::default(),
                         )
                         .await?;
-                    info!("Token: {:?}", token);
                 }
             }
         }

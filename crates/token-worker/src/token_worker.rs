@@ -2,6 +2,7 @@ use anyhow::Result;
 use futures::StreamExt;
 use lapin::options::BasicAckOptions;
 use lapin::types::FieldTable;
+use sui_indexer::indexer::receiver::TOKEN_EXCHANGE;
 use sui_indexer::models::tokens::Token;
 
 const NAME: &str = "token.create";
@@ -18,7 +19,7 @@ pub async fn handle_token_create(channel: lapin::Channel) -> Result<()> {
     channel
         .queue_bind(
             NAME,
-            "token",
+            TOKEN_EXCHANGE,
             NAME,
             lapin::options::QueueBindOptions::default(),
             FieldTable::default(),
