@@ -1,5 +1,6 @@
 use crate::models::collections::Collection;
 use crate::models::tokens::Token;
+use crate::ObjectStatus;
 use anyhow::anyhow;
 use image::EncodableLayout;
 use lapin::{
@@ -18,6 +19,19 @@ pub enum Message {
     Wrap,
     Unwrap,
     UnwrapThenDelete,
+}
+
+impl From<ObjectStatus> for Message {
+    fn from(status: ObjectStatus) -> Self {
+        match status {
+            ObjectStatus::Created => Message::Create,
+            ObjectStatus::Deleted => Message::Delete,
+            ObjectStatus::Mutated => Message::Update,
+            ObjectStatus::Wrapped => Message::Wrap,
+            ObjectStatus::Unwrapped => Message::Unwrap,
+            ObjectStatus::UnwrappedThenDeleted => Message::UnwrapThenDelete,
+        }
+    }
 }
 
 impl Message {
@@ -89,7 +103,6 @@ impl IndexSender {
                         .clone();
                     let rk = format!("token.{}", message.to_str());
 
-                    dbg!(&rk);
                     channel
                         .basic_publish(
                             TOKEN_EXCHANGE,

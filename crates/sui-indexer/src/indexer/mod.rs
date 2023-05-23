@@ -79,18 +79,19 @@ impl Indexer {
             let bob_yard_events = parse_bob_yard_event(&events, &self.config.bob_yard)?;
             let token_activities = parse_tokens_activity(&bob_yard_events, &tokens);
 
-            for (_, collection) in collections.iter() {
+            for (msg, collection) in collections.iter() {
                 self.sender
                     .send(IndexingMessage::Collection((
-                        Message::Create,
+                        (*msg).into(),
                         collection.clone(),
                     )))
                     .await?;
             }
 
-            for (_, t) in tokens.iter() {
+            for (msg, t) in tokens.iter() {
+                dbg!(&msg);
                 self.sender
-                    .send(IndexingMessage::Token((Message::Create, t.0.clone())))
+                    .send(IndexingMessage::Token(((*msg).into(), t.0.clone())))
                     .await?;
             }
 

@@ -14,7 +14,8 @@ use crate::worker::Worker;
 async fn main() -> Result<()> {
     dotenv().ok();
 
-    let filter = EnvFilter::from_default_env()
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or(EnvFilter::new("info"))
         .add_directive("mio=off".parse().unwrap())
         .add_directive("tokio_util=off".parse().unwrap());
 

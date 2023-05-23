@@ -1,14 +1,16 @@
 use crate::aws::S3Store;
 use anyhow::Result;
 use diesel::PgConnection;
-use futures::future::join_all;
+use futures::future::{join_all, try_join_all};
 use futures::StreamExt;
 use lapin::options::{BasicAckOptions, ExchangeDeclareOptions};
 use lapin::types::FieldTable;
 use lapin::{Connection, ExchangeKind};
 use sui_indexer::indexer::receiver::create_exchange;
+use tokio::task_local;
+use tracing::error;
 
-use crate::token_worker::handle_token_create;
+use crate::token_worker::{handle_token_create, handle_token_update};
 use sui_indexer::models::tokens::Token;
 
 pub struct Worker {
@@ -29,11 +31,15 @@ impl Worker {
             Err(e) => tracing::info!("error creating exchange: {}", e),
         };
 
-        let mut channel = self.mq.create_channel().await?;
-        //tokio::spawn(handle_create(channel));
-        handle_token_create(channel).await?;
-        //join_all(vec![handle_create(&mut channel)]).await?;
+        let update_channel = self.mq.create_channel().await?;
+        let create_channel = self.mq.create_channel().await?;
 
+        tokio::try_join!(
+            handle_token_update(update_channel),
+            handle_token_create(create_channel)
+        )?;
+
+        error!("all workers finished");
         Ok(())
     }
 }
