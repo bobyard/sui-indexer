@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 
+use bytes::Buf;
 use lazy_static::lazy_static;
 use rusoto_core::credential::StaticProvider;
 use rusoto_core::Region;
@@ -7,17 +8,19 @@ use rusoto_s3::{GetObjectRequest, PutObjectRequest, S3Client, S3};
 
 const REGION: Region = Region::UsWest1;
 const BUCKET: &str = "bobyard";
+const IPFS_GATEWAY: &str = "https://cloudflare-ipfs.com/ipfs/";
 
 lazy_static! {
-    static ref KEY: String =
-        std::env::var("AWS_ACCESS_KEY_ID").expect("AWS_ACCESS_KEY_ID must be set");
+    static ref KEY: String = std::env::var("AWS_ACCESS_KEY_ID")
+        .expect("AWS_ACCESS_KEY_ID must be set");
 }
 
 lazy_static! {
-    static ref SECTRYKEY: String =
-        std::env::var("AWS_SECRET_ACCESS_KEY").expect("AWS_SECRET_ACCESS_KEY must be set");
+    static ref SECTRYKEY: String = std::env::var("AWS_SECRET_ACCESS_KEY")
+        .expect("AWS_SECRET_ACCESS_KEY must be set");
 }
 
+#[derive(Clone)]
 pub struct S3Store {
     bucket_name: String,
     client: S3Client,
@@ -55,10 +58,73 @@ impl S3Store {
         Ok(())
     }
 
+    pub async fn read_to_buffer(&mut self, url: &str) -> Result<Vec<u8>> {
+        let response = reqwest::get(url).await?;
+        let bytes = response.bytes().await?;
+        let mut buffer = Vec::new();
+        let mut reader = bytes.reader();
+        let _ = std::io::copy(&mut reader, &mut buffer)?;
+
+        Ok(buffer)
+    }
+
+    pub async fn update_with_remote_url(
+        &mut self, mut url: String,
+    ) -> Result<String> {
+        let mut img = "".to_string();
+
+        if url.starts_with("ipfs://") {
+            url =
+                IPFS_GATEWAY.to_string() + url.strip_prefix("ipfs://").unwrap();
+        }
+
+        tracing::info!("url {}", &url);
+
+        if url != "" {
+            let buffer = self.read_to_buffer(&url).await?;
+
+            let name = blake3::hash(&buffer);
+            tracing::info!("name:{}", name.to_string());
+
+            let res = self.find_exist_in_s3(name.to_string()).await;
+            if res.is_err() {
+                let mine = if url.ends_with("svg") {
+                    Some("image/svg+xml".to_string())
+                } else if url.ends_with("png") {
+                    Some("image/png".to_string())
+                } else if url.ends_with("jpg") || url.ends_with("jpeg") {
+                    Some("image/jpeg".to_string())
+                } else if url.ends_with("gif") {
+                    Some("image/gif".to_string())
+                } else if url.ends_with("webp") {
+                    Some("image/webp".to_string())
+                } else {
+                    None
+                };
+
+                //not exist in s3, we upload it
+                let res = self
+                    .upload_images_to_s3(name.to_string(), buffer, mine)
+                    .await;
+                if res.is_ok() {
+                    img = name.to_string();
+                } else {
+                    tracing::info!(
+                        "upload image to s3 error: {:?} url: {:?}",
+                        res,
+                        url
+                    );
+                };
+            } else {
+                img = name.to_string();
+            }
+        }
+
+        Ok(img)
+    }
+
     pub async fn upload_images_to_s3(
-        &mut self,
-        object_key: String,
-        file_data: Vec<u8>,
+        &mut self, object_key: String, file_data: Vec<u8>,
         mut mime: Option<String>,
     ) -> Result<()> {
         if mime.is_none() {

@@ -45,7 +45,9 @@ pub struct Activity {
     pub updated_at: chrono::NaiveDateTime,
 }
 
-pub fn batch_insert(connection: &mut PgConnection, new: &Vec<Activity>) -> Result<usize> {
+pub fn batch_insert(
+    connection: &mut PgConnection, new: &Vec<Activity>,
+) -> Result<usize> {
     insert_into(activities::table)
         .values(new)
         .execute(connection)
@@ -53,7 +55,9 @@ pub fn batch_insert(connection: &mut PgConnection, new: &Vec<Activity>) -> Resul
 }
 
 impl Activity {
-    pub fn new_from_collection_with_type(t: ActivityType, collection: &Collection) -> Activity {
+    pub fn new_from_collection_with_type(
+        t: ActivityType, collection: &Collection,
+    ) -> Activity {
         Activity {
             chain_id: collection.chain_id as i64,
             version: collection.version,
@@ -79,8 +83,7 @@ impl Activity {
     }
 
     pub fn new_from_token_with_type(
-        t: ActivityType,
-        (token, sender): &(Token, String),
+        t: ActivityType, (token, sender): &(Token, String),
     ) -> Activity {
         Activity {
             chain_id: token.chain_id,

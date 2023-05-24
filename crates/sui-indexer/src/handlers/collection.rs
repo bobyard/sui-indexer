@@ -1,4 +1,6 @@
-use crate::models::activities::{batch_insert as batch_insert_activities, Activity, ActivityType};
+use crate::models::activities::{
+    batch_insert as batch_insert_activities, Activity, ActivityType,
+};
 use crate::models::collections::{batch_insert, Collection};
 use crate::utils::json_to_kv_map;
 use crate::ObjectStatus;
@@ -11,8 +13,7 @@ use sui_sdk::rpc_types::{SuiObjectData, SuiParsedData};
 
 pub fn parse_collection(
     object_changes: &Vec<(ObjectStatus, SuiObjectData, String, u64)>,
-    con: &mut redis::Connection,
-    coll_set: &mut HashMap<String, String>,
+    con: &mut redis::Connection, coll_set: &mut HashMap<String, String>,
 ) -> Result<Vec<(ObjectStatus, Collection)>> {
     Ok(object_changes
         .into_iter()
@@ -53,13 +54,18 @@ pub fn parse_collection(
                     .get(&"description".to_string())
                     .unwrap_or(&"".to_string())
                     .clone();
-                let project_url = kv_set.get(&"project_url".to_string()).cloned();
+                let project_url =
+                    kv_set.get(&"project_url".to_string()).cloned();
 
-                //let project_url = kv_set.get(&"project_url".to_string()).unwrap_or(&"".to_string()).clone();
+                //let project_url =
+                // kv_set.get(&"project_url".to_string()).unwrap_or(&"".
+                // to_string()).clone();
                 let creator = kv_set.get(&"creator".to_string()).cloned();
 
-                let collection_data_in_json = serde_json::to_string(&kv_set).unwrap();
-                let collection_name = object_type.split("::").last().unwrap().to_string();
+                let collection_data_in_json =
+                    serde_json::to_string(&kv_set).unwrap();
+                let collection_name =
+                    object_type.split("::").last().unwrap().to_string();
 
                 let collection = Collection {
                     chain_id: 1,
@@ -87,8 +93,14 @@ pub fn parse_collection(
                     best_bid_coin_id: None,
                     verify: false,
                     last_metadata_sync: Some(Utc::now().naive_utc()),
-                    created_at: NaiveDateTime::from_timestamp_millis(*timestamp as i64).unwrap(),
-                    updated_at: NaiveDateTime::from_timestamp_millis(*timestamp as i64).unwrap(),
+                    created_at: NaiveDateTime::from_timestamp_millis(
+                        *timestamp as i64,
+                    )
+                    .unwrap(),
+                    updated_at: NaiveDateTime::from_timestamp_millis(
+                        *timestamp as i64,
+                    )
+                    .unwrap(),
                 };
                 return Some((status.clone(), collection));
             }
@@ -98,8 +110,7 @@ pub fn parse_collection(
 }
 
 pub fn collection_indexer_work(
-    collections: &Vec<(ObjectStatus, Collection)>,
-    pg: &mut PgConnection,
+    collections: &Vec<(ObjectStatus, Collection)>, pg: &mut PgConnection,
 ) -> Result<()> {
     let insert_collections = collections
         .iter()
@@ -118,7 +129,10 @@ pub fn collection_indexer_work(
     let created_activities = insert_collections
         .iter()
         .map(|collection| {
-            Activity::new_from_collection_with_type(ActivityType::Created, collection)
+            Activity::new_from_collection_with_type(
+                ActivityType::Created,
+                collection,
+            )
         })
         .collect::<Vec<Activity>>();
     batch_insert_activities(pg, &created_activities)?;

@@ -1,14 +1,10 @@
 use anyhow::Result;
-use diesel::{Connection, PgConnection};
+use diesel::r2d2::ConnectionManager;
 use dotenv::dotenv;
 use lapin::ConnectionProperties;
+use token_worker::aws;
+use token_worker::worker::Worker;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
-
-mod aws;
-mod token_worker;
-mod worker;
-
-use crate::worker::Worker;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -26,16 +22,28 @@ async fn main() -> Result<()> {
         .with_env_filter(filter)
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("setting default subscriber failed");
 
-    let mut s3 = aws::S3Store::new();
+    let s3 = aws::S3Store::new();
+    let database_url =
+        std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let mut pg = PgConnection::establish(&database_url)?;
+    let manager =
+        ConnectionManager::<diesel::pg::PgConnection>::new(database_url);
 
-    let rabbit_uri = std::env::var("RABBITMQ_URI").expect("RABBITMQ_URI must be set");
-    let conn = lapin::Connection::connect(&rabbit_uri, ConnectionProperties::default()).await?;
+    let pool = r2d2::Pool::builder()
+        .build(manager)
+        .expect("Failed to create pool");
 
-    let mut worker = Worker::new(s3, pg, conn);
+    let rabbit_uri =
+        std::env::var("RABBITMQ_URI").expect("RABBITMQ_URI must be set");
+    let conn = lapin::Connection::connect(
+        (&rabbit_uri).as_ref(),
+        ConnectionProperties::default(),
+    )
+    .await?;
+
+    let mut worker = Worker::new(s3, pool, conn);
     worker.start().await
 }

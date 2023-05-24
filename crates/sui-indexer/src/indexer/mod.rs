@@ -15,13 +15,20 @@ use tokio::sync::mpsc::Sender;
 
 use crate::models::activities::batch_insert as batch_insert_activities;
 use crate::models::check_point::query_check_point;
-use crate::{fetch_changed_objects, get_object_changes, multi_get_full_transactions, ObjectStatus};
+use crate::{
+    fetch_changed_objects, get_object_changes, multi_get_full_transactions,
+    ObjectStatus,
+};
 
-use sui_sdk::rpc_types::{Checkpoint, SuiEvent, SuiObjectData, SuiTransactionBlockResponse};
+use sui_sdk::rpc_types::{
+    Checkpoint, SuiEvent, SuiObjectData, SuiTransactionBlockResponse,
+};
 
 use crate::config::Config;
 use crate::handlers::activity::parse_tokens_activity;
-use crate::handlers::bobyard_event_catch::{event_handle, parse_bob_yard_event};
+use crate::handlers::bobyard_event_catch::{
+    event_handle, parse_bob_yard_event,
+};
 use crate::handlers::collection::{collection_indexer_work, parse_collection};
 use crate::handlers::token::{parse_tokens, token_indexer_work};
 use crate::indexer::receiver::{IndexingMessage, Message};
@@ -43,11 +50,8 @@ pub(crate) struct Indexer {
 
 impl Indexer {
     pub fn new(
-        config: Config,
-        sui_client: SuiClient,
-        postgres: PgConnection,
-        redis: redis::Client,
-        sender: Sender<IndexingMessage>,
+        config: Config, sui_client: SuiClient, postgres: PgConnection,
+        redis: redis::Client, sender: Sender<IndexingMessage>,
     ) -> Self {
         Self {
             config,
@@ -61,7 +65,8 @@ impl Indexer {
     pub async fn start(&mut self) -> Result<()> {
         let mut redis = self.redis.get_connection()?;
         let mut indexer = query_check_point(&mut self.postgres, 1)? as u64;
-        let mut collects_set: HashMap<String, String> = redis.hgetall("collections")?;
+        let mut collects_set: HashMap<String, String> =
+            redis.hgetall("collections")?;
 
         loop {
             let (check_point_data, transactions, object_changed, events) =
@@ -69,15 +74,24 @@ impl Indexer {
                     Ok(t) => t,
                     Err(e) => {
                         debug!(error=?e,"Got some error from node, we can continue to process");
-                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        tokio::time::sleep(std::time::Duration::from_millis(
+                            100,
+                        ))
+                        .await;
                         continue;
                     }
                 };
 
-            let collections = parse_collection(&object_changed, &mut redis, &mut collects_set)?;
+            let collections = parse_collection(
+                &object_changed,
+                &mut redis,
+                &mut collects_set,
+            )?;
             let tokens = parse_tokens(&object_changed, &mut collects_set)?;
-            let bob_yard_events = parse_bob_yard_event(&events, &self.config.bob_yard)?;
-            let token_activities = parse_tokens_activity(&bob_yard_events, &tokens);
+            let bob_yard_events =
+                parse_bob_yard_event(&events, &self.config.bob_yard)?;
+            let token_activities =
+                parse_tokens_activity(&bob_yard_events, &tokens);
 
             for (msg, collection) in collections.iter() {
                 self.sender
@@ -106,17 +120,22 @@ impl Indexer {
                 }
 
                 if bob_yard_events.len() > 0 {
-                    event_handle(&bob_yard_events, check_point_data.timestamp_ms as i64, conn)
-                        .unwrap();
+                    event_handle(
+                        &bob_yard_events,
+                        check_point_data.timestamp_ms as i64,
+                        conn,
+                    )
+                    .unwrap();
                 }
 
                 if token_activities.len() > 0 {
                     batch_insert_activities(conn, &token_activities).unwrap();
                 }
 
-                let updated_row = diesel::update(check_point.filter(chain_id.eq(1)))
-                    .set(version.eq(indexer as i64))
-                    .get_result::<(i64, i64)>(conn);
+                let updated_row =
+                    diesel::update(check_point.filter(chain_id.eq(1)))
+                        .set(version.eq(indexer as i64))
+                        .get_result::<(i64, i64)>(conn);
 
                 assert_eq!(Ok((1, indexer as i64)), updated_row);
                 Ok::<(), anyhow::Error>(())
@@ -131,15 +150,15 @@ impl Indexer {
     }
 
     async fn download_checkpoint_data(
-        &self,
-        seq: CheckpointSequenceNumber,
+        &self, seq: CheckpointSequenceNumber,
     ) -> Result<(
         Checkpoint,
         Vec<SuiTransactionBlockResponse>,
         Vec<(ObjectStatus, SuiObjectData, String, u64)>,
         Vec<SuiEvent>,
     )> {
-        let mut checkpoint = self.sui_client.read_api().get_checkpoint(seq.into()).await;
+        let mut checkpoint =
+            self.sui_client.read_api().get_checkpoint(seq.into()).await;
 
         while checkpoint.is_err() {
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -147,23 +166,28 @@ impl Indexer {
                 "CheckPoint fetch failed, retrying... error: {:?}",
                 checkpoint.unwrap_err()
             );
-            checkpoint = self.sui_client.read_api().get_checkpoint(seq.into()).await;
+            checkpoint =
+                self.sui_client.read_api().get_checkpoint(seq.into()).await;
         }
 
         // unwrap here is safe because we checked for error above
         let checkpoint = checkpoint.unwrap();
 
-        let transactions = join_all(checkpoint.transactions.chunks(MULTI_GET_CHUNK_SIZE).map(
-            |digests| {
-                multi_get_full_transactions(self.sui_client.read_api().clone(), digests.to_vec())
-            },
-        ))
-        .await
-        .into_iter()
-        .try_fold(vec![], |mut acc, chunk| {
-            acc.extend(chunk?);
-            Ok::<Vec<SuiTransactionBlockResponse>, Error>(acc)
-        })?;
+        let transactions =
+            join_all(checkpoint.transactions.chunks(MULTI_GET_CHUNK_SIZE).map(
+                |digests| {
+                    multi_get_full_transactions(
+                        self.sui_client.read_api().clone(),
+                        digests.to_vec(),
+                    )
+                },
+            ))
+            .await
+            .into_iter()
+            .try_fold(vec![], |mut acc, chunk| {
+                acc.extend(chunk?);
+                Ok::<Vec<SuiTransactionBlockResponse>, Error>(acc)
+            })?;
 
         let mut object_changes = vec![];
         for tx in transactions.iter() {
@@ -178,10 +202,12 @@ impl Indexer {
             }
         }
 
-        let changed_objects =
-            fetch_changed_objects(self.sui_client.read_api().clone(), object_changes)
-                .await
-                .map_err(|e| anyhow::format_err!("fetch_changed_objects err = {e}"))?;
+        let changed_objects = fetch_changed_objects(
+            self.sui_client.read_api().clone(),
+            object_changes,
+        )
+        .await
+        .map_err(|e| anyhow::format_err!("fetch_changed_objects err = {e}"))?;
 
         Ok((checkpoint, transactions, changed_objects, events))
     }

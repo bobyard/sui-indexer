@@ -4,8 +4,8 @@ use crate::ObjectStatus;
 use anyhow::anyhow;
 use image::EncodableLayout;
 use lapin::{
-    options::*, publisher_confirm::Confirmation, types::FieldTable, BasicProperties, Connection,
-    ConnectionProperties, ExchangeKind, Result,
+    options::*, publisher_confirm::Confirmation, types::FieldTable,
+    BasicProperties, Connection, ConnectionProperties, ExchangeKind, Result,
 };
 use tokio::select;
 use tokio::sync::mpsc::Receiver;

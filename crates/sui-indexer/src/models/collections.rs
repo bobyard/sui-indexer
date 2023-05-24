@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::schema::collections;
 
-#[derive(Insertable, Debug, Clone, Serialize, Deserialize)]
+#[derive(Insertable, Queryable, Debug, Clone, Serialize, Deserialize)]
 #[diesel(table_name = collections)]
 pub struct Collection {
     pub chain_id: i32,
@@ -37,9 +37,58 @@ pub struct Collection {
     pub updated_at: chrono::NaiveDateTime,
 }
 
+#[derive(Queryable, PartialEq, Debug, Clone)]
+#[diesel(table_name = tokens)]
+pub struct CollectionMetadata {
+    pub collection_id: String,
+    pub display_name: Option<String>,
+    pub website: Option<String>,
+    pub discord: Option<String>,
+    pub twitter: Option<String>,
+    pub icon: Option<String>,
+    pub description: String,
+}
+
+pub fn query_collection(
+    connection: &mut PgConnection, c_id: &str,
+) -> Result<CollectionMetadata> {
+    use crate::schema::collections::dsl::*;
+
+    collections
+        .select((
+            collection_id,
+            display_name,
+            website,
+            discord,
+            twitter,
+            icon,
+            description,
+        ))
+        .filter(collection_id.eq(c_id))
+        .limit(1)
+        .get_result::<CollectionMetadata>(connection)
+        .map_err(|e| anyhow::anyhow!(e.to_string()))
+}
+
+pub fn update_collection_metadata(
+    connection: &mut PgConnection, c_id: &str, new_meta: &CollectionMetadata,
+) -> Result<()> {
+    use crate::schema::collections::dsl::*;
+
+    let _ = diesel::update(collections)
+        .set((
+            (display_name.eq(new_meta.display_name.clone())),
+            (description.eq(new_meta.description.clone())),
+            (icon.eq(new_meta.icon.clone())),
+        ))
+        .filter(collection_id.eq(c_id))
+        .execute(connection)?;
+
+    Ok(())
+}
+
 pub fn batch_insert(
-    connection: &mut PgConnection,
-    new_collections: &Vec<Collection>,
+    connection: &mut PgConnection, new_collections: &Vec<Collection>,
 ) -> Result<usize> {
     insert_into(collections::table)
         .values(new_collections)

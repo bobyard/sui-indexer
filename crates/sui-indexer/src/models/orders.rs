@@ -31,7 +31,9 @@ pub struct Order {
     pub updated_at: Option<chrono::NaiveDateTime>,
 }
 
-pub fn batch_insert(connection: &mut PgConnection, records: &Vec<Order>) -> Result<usize> {
+pub fn batch_insert(
+    connection: &mut PgConnection, records: &Vec<Order>,
+) -> Result<usize> {
     insert_into(orders::table)
         .values(records)
         .execute(connection)

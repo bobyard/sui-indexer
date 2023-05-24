@@ -18,7 +18,10 @@ pub fn json_to_kv_map(fields: &Value) -> HashMap<String, String> {
             if k == &"id" {
                 return;
             }
-            kv_set.insert(k.as_str().parse().unwrap(), v.as_str().unwrap().to_string());
+            kv_set.insert(
+                k.as_str().parse().unwrap(),
+                v.as_str().unwrap().to_string(),
+            );
         });
     }
     kv_set

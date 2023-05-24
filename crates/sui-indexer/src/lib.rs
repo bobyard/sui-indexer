@@ -16,8 +16,9 @@ use lapin::ConnectionProperties;
 use sui_sdk::apis::ReadApi;
 use sui_sdk::rpc_types::SuiTransactionBlockData::V1;
 use sui_sdk::rpc_types::{
-    OwnedObjectRef, SuiGetPastObjectRequest, SuiObjectData, SuiObjectDataOptions,
-    SuiTransactionBlockEffectsAPI, SuiTransactionBlockResponse, SuiTransactionBlockResponseOptions,
+    OwnedObjectRef, SuiGetPastObjectRequest, SuiObjectData,
+    SuiObjectDataOptions, SuiTransactionBlockEffectsAPI,
+    SuiTransactionBlockResponse, SuiTransactionBlockResponseOptions,
 };
 use sui_sdk::types::digests::TransactionDigest;
 use sui_sdk::SuiClientBuilder;
@@ -42,9 +43,12 @@ pub async fn run(cfg: Config) -> Result<()> {
         .build(&cfg.node)
         .await
         .map_err(|e| anyhow!("Pg: {e}"))?;
-    let pg = PgConnection::establish(&cfg.postgres).map_err(|e| anyhow!("Pg: {e}"))?;
+    let pg = PgConnection::establish(&cfg.postgres)
+        .map_err(|e| anyhow!("Pg: {e}"))?;
     let redis = redis::Client::open(&*cfg.redis)?;
-    let conn = lapin::Connection::connect(&cfg.mq, ConnectionProperties::default()).await?;
+    let conn =
+        lapin::Connection::connect(&cfg.mq, ConnectionProperties::default())
+            .await?;
 
     let (send, recv) = tokio::sync::mpsc::channel::<IndexingMessage>(1000);
     tokio::spawn(async move {
@@ -59,8 +63,7 @@ pub async fn run(cfg: Config) -> Result<()> {
 }
 
 pub async fn multi_get_full_transactions(
-    http_client: &ReadApi,
-    digests: Vec<TransactionDigest>,
+    http_client: &ReadApi, digests: Vec<TransactionDigest>,
 ) -> Result<Vec<SuiTransactionBlockResponse>> {
     let sui_transactions = http_client
         .multi_get_transactions_with_options(
@@ -140,7 +143,8 @@ pub async fn fetch_changed_objects(
             .iter()
             .map(|(_, _, _, sender, _)| sender.clone())
             .collect();
-        let times: Vec<u64> = objects.iter().map(|(_, _, _, _, t)| *t).collect();
+        let times: Vec<u64> =
+            objects.iter().map(|(_, _, _, _, t)| *t).collect();
 
         let wanted_past_object_request = objects
             .iter()
@@ -156,24 +160,27 @@ pub async fn fetch_changed_objects(
                     .with_content()
                     .with_display(),
             )
-            .map(move |resp| (resp, wanted_past_object_statuses, senders, times))
+            .map(move |resp| {
+                (resp, wanted_past_object_statuses, senders, times)
+            })
     }))
     .await
     .into_iter()
     .try_fold(vec![], |mut acc, chunk| {
-        let object_datas = chunk.0?.into_iter().try_fold(vec![], |mut acc, resp| {
-            // let object_data = if let Ok(obj) = resp.into_object() {
-            //     Some(obj)
-            // } else {
-            //     error!("Failed to parse object data,local fullnode have not full-data");
-            //     None
-            // };
-            let object_data = resp.into_object()?;
+        let object_datas =
+            chunk.0?.into_iter().try_fold(vec![], |mut acc, resp| {
+                // let object_data = if let Ok(obj) = resp.into_object() {
+                //     Some(obj)
+                // } else {
+                //     error!("Failed to parse object data,local fullnode have
+                // not full-data");     None
+                // };
+                let object_data = resp.into_object()?;
 
-            acc.push(object_data);
-            //Ok::<Vec<Option<SuiObjectData>>, Error>(acc)
-            Ok::<Vec<SuiObjectData>, Error>(acc)
-        })?;
+                acc.push(object_data);
+                //Ok::<Vec<Option<SuiObjectData>>, Error>(acc)
+                Ok::<Vec<SuiObjectData>, Error>(acc)
+            })?;
 
         let mutated_object_chunk: Vec<_> = chunk
             .1
@@ -182,22 +189,33 @@ pub async fn fetch_changed_objects(
             .zip(chunk.2)
             .zip(chunk.3)
             .collect();
-        let mutated_object_chunk: Vec<(ObjectStatus, SuiObjectData, String, u64)> =
-            mutated_object_chunk
-                .into_iter()
-                // .filter_map(|(((status, obj), sender), timestamp)|{
-                //     if obj.is_some() {
-                //         Some((status, obj.unwrap(), sender, timestamp))
-                //     } else {
-                //         None
-                //     }
-                // })
-                .map(|(((status, obj), sender), timestamp)| (status, obj, sender, timestamp))
-                .collect();
+        let mutated_object_chunk: Vec<(
+            ObjectStatus,
+            SuiObjectData,
+            String,
+            u64,
+        )> = mutated_object_chunk
+            .into_iter()
+            // .filter_map(|(((status, obj), sender), timestamp)|{
+            //     if obj.is_some() {
+            //         Some((status, obj.unwrap(), sender, timestamp))
+            //     } else {
+            //         None
+            //     }
+            // })
+            .map(|(((status, obj), sender), timestamp)| {
+                (status, obj, sender, timestamp)
+            })
+            .collect();
 
-        //let mutated_object_chunk:Vec<(ObjectStatus, SuiObjectData,String,u64)> = mutated_object_chunk.iter().map(|(status,obj)| (status,obj,chunk.2.clone(),chunk.3)).collect();
-        // let mut mutated_object_chunk = mutated_object_chunk.into_iter().zip(chunk.2).collection();
-        // let mut mutated_object_chunk = mutated_object_chunk.into_iter().zip(chunk.3).collection();
+        //let mutated_object_chunk:Vec<(ObjectStatus,
+        // SuiObjectData,String,u64)> =
+        // mutated_object_chunk.iter().map(|(status,obj)|
+        // (status,obj,chunk.2.clone(),chunk.3)).collect();
+        // let mut mutated_object_chunk =
+        // mutated_object_chunk.into_iter().zip(chunk.2).collection();
+        // let mut mutated_object_chunk =
+        // mutated_object_chunk.into_iter().zip(chunk.3).collection();
 
         acc.extend(mutated_object_chunk);
         Ok::<_, Error>(acc)

@@ -5,7 +5,9 @@ use diesel::prelude::*;
 use diesel::upsert::excluded;
 use serde::{Deserialize, Serialize};
 
-#[derive(Insertable, Queryable, PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Insertable, Queryable, PartialEq, Debug, Clone, Serialize, Deserialize,
+)]
 #[diesel(table_name = tokens)]
 pub struct Token {
     pub chain_id: i64,
@@ -37,7 +39,9 @@ pub struct Metadata {
     pub image: Option<String>,
 }
 
-pub fn batch_insert(connection: &mut PgConnection, new_tokens: &Vec<Token>) -> Result<usize> {
+pub fn batch_insert(
+    connection: &mut PgConnection, new_tokens: &Vec<Token>,
+) -> Result<usize> {
     insert_into(tokens::table)
         .values(new_tokens)
         .on_conflict(tokens::token_id)
@@ -46,22 +50,27 @@ pub fn batch_insert(connection: &mut PgConnection, new_tokens: &Vec<Token>) -> R
         .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 
-pub fn batch_change(connection: &mut PgConnection, changed: &Vec<Token>) -> Result<usize> {
+pub fn batch_change(
+    connection: &mut PgConnection, changed: &Vec<Token>,
+) -> Result<usize> {
     insert_into(tokens::table)
         .values(changed)
         .on_conflict(tokens::token_id)
         .do_update()
         .set((
-            tokens::metadata_json.eq(excluded(tokens::metadata_json)),
-            tokens::version.eq(excluded(tokens::version)),
-            tokens::owner_address.eq(excluded(tokens::owner_address)),
-            tokens::updated_at.eq(excluded(tokens::updated_at)),
+            // tokens::metadata_json.eq(excluded(tokens::metadata_json)),
+            // tokens::version.eq(excluded(tokens::version)),
+            // tokens::owner_address.eq(excluded(tokens::owner_address)),
+            //tokens::updated_at.eq(excluded(tokens::updated_at)),
+            tokens::image.eq(excluded(tokens::image)),
         ))
         .execute(connection)
         .map_err(|e| anyhow::anyhow!(e.to_string()))
 }
 
-pub fn query_the_uncache_images(connection: &mut PgConnection) -> Result<Vec<Metadata>> {
+pub fn query_the_uncache_images(
+    connection: &mut PgConnection,
+) -> Result<Vec<Metadata>> {
     use crate::schema::tokens::dsl::*;
 
     tokens
@@ -73,8 +82,7 @@ pub fn query_the_uncache_images(connection: &mut PgConnection) -> Result<Vec<Met
 }
 
 pub fn update_image_url(
-    connection: &mut PgConnection,
-    token_id_for_update: String,
+    connection: &mut PgConnection, token_id_for_update: String,
     images_url: Option<String>,
 ) -> Result<()> {
     use crate::schema::tokens::dsl::*;

@@ -49,7 +49,9 @@ pub struct QueryList {
     pub updated_at: Option<chrono::NaiveDateTime>,
 }
 
-pub fn batch_insert(connection: &mut PgConnection, records: &Vec<List>) -> Result<usize> {
+pub fn batch_insert(
+    connection: &mut PgConnection, records: &Vec<List>,
+) -> Result<usize> {
     insert_into(lists::table)
         .values(records)
         .execute(connection)

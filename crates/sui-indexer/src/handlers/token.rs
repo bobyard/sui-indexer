@@ -1,6 +1,9 @@
-use crate::models::activities::{batch_insert as batch_insert_activities, Activity, ActivityType};
+use crate::models::activities::{
+    batch_insert as batch_insert_activities, Activity, ActivityType,
+};
 use crate::models::tokens::{
-    batch_change as batch_change_tokens, batch_insert as batch_insert_tokens, delete, Token,
+    batch_change as batch_change_tokens, batch_insert as batch_insert_tokens,
+    delete, Token,
 };
 use crate::ObjectStatus;
 use anyhow::{anyhow, Result};
@@ -19,7 +22,9 @@ pub fn parse_tokens(
             let object_type = obj.type_.as_ref().unwrap().clone().to_string();
             if let Some(display) = &obj.display {
                 if let Some(kv_set) = &display.data {
-                    let collection_id = coll_set.get(&object_type).expect("Collection not found");
+                    let collection_id = coll_set
+                        .get(&object_type)
+                        .expect("Collection not found");
 
                     let name = kv_set
                         .get(&"name".to_string())
@@ -29,10 +34,12 @@ pub fn parse_tokens(
                         .get(&"image_url".to_string())
                         .unwrap_or(&"".to_string())
                         .clone();
-                    let owner_address = obj
-                        .owner
-                        .as_ref()
-                        .map(|owner| owner.get_owner_address().unwrap_or_default().to_string());
+                    let owner_address = obj.owner.as_ref().map(|owner| {
+                        owner
+                            .get_owner_address()
+                            .unwrap_or_default()
+                            .to_string()
+                    });
 
                     let display_json = serde_json::to_string(&kv_set).unwrap();
 
@@ -57,12 +64,16 @@ pub fn parse_tokens(
                                 metadata_json: Some(display_json),
                                 image: None,
                                 created_at: Some(
-                                    NaiveDateTime::from_timestamp_millis(*timestamp as i64)
-                                        .unwrap(),
+                                    NaiveDateTime::from_timestamp_millis(
+                                        *timestamp as i64,
+                                    )
+                                    .unwrap(),
                                 ),
                                 updated_at: Some(
-                                    NaiveDateTime::from_timestamp_millis(*timestamp as i64)
-                                        .unwrap(),
+                                    NaiveDateTime::from_timestamp_millis(
+                                        *timestamp as i64,
+                                    )
+                                    .unwrap(),
                                 ),
                             },
                             sender.clone(),
@@ -79,8 +90,7 @@ pub fn parse_tokens(
 }
 
 pub fn token_indexer_work(
-    tokens: &Vec<(ObjectStatus, (Token, String))>,
-    pg: &mut PgConnection,
+    tokens: &Vec<(ObjectStatus, (Token, String))>, pg: &mut PgConnection,
 ) -> Result<()> {
     let insert_tokens = tokens
         .iter()
@@ -95,15 +105,19 @@ pub fn token_indexer_work(
         let (tokens_for_db, _): (Vec<Token>, Vec<String>) =
             insert_tokens.clone().into_iter().unzip();
 
-        batch_insert_tokens(pg, &tokens_for_db)
-            .map_err(|e| anyhow!("BatchInsertTokens Failed {}", e.to_string()))?;
+        batch_insert_tokens(pg, &tokens_for_db).map_err(|e| {
+            anyhow!("BatchInsertTokens Failed {}", e.to_string())
+        })?;
         let mint_activitis = insert_tokens
             .iter()
-            .map(|token| Activity::new_from_token_with_type(ActivityType::Minted, token))
+            .map(|token| {
+                Activity::new_from_token_with_type(ActivityType::Minted, token)
+            })
             .collect::<Vec<Activity>>();
 
-        batch_insert_activities(pg, &mint_activitis)
-            .map_err(|e| anyhow!("BatchInsertActivities Failed {}", e.to_string()))?;
+        batch_insert_activities(pg, &mint_activitis).map_err(|e| {
+            anyhow!("BatchInsertActivities Failed {}", e.to_string())
+        })?;
     }
 
     let changed_tokens = tokens
@@ -141,14 +155,17 @@ pub fn token_indexer_work(
             })
             .collect::<Vec<Token>>();
 
-        batch_change_tokens(pg, &tokens_for_db)
-            .map_err(|e| anyhow!("BatchChangeTokens failed {}", e.to_string()))?;
+        batch_change_tokens(pg, &tokens_for_db).map_err(|e| {
+            anyhow!("BatchChangeTokens failed {}", e.to_string())
+        })?;
     }
 
     let deleted_tokens = tokens
         .iter()
         .filter_map(|(objects, token)| {
-            if *objects == ObjectStatus::Deleted || *objects == ObjectStatus::UnwrappedThenDeleted {
+            if *objects == ObjectStatus::Deleted
+                || *objects == ObjectStatus::UnwrappedThenDeleted
+            {
                 return Some(token.clone());
             }
             None
@@ -156,8 +173,9 @@ pub fn token_indexer_work(
         .collect::<Vec<(Token, String)>>();
     if deleted_tokens.len() > 0 {
         for t in deleted_tokens {
-            delete(pg, &t.0.token_id)
-                .map_err(|e| anyhow!("DeleteTokens failed {}", e.to_string()))?;
+            delete(pg, &t.0.token_id).map_err(|e| {
+                anyhow!("DeleteTokens failed {}", e.to_string())
+            })?;
         }
     }
 

@@ -32,7 +32,9 @@ pub struct Offer {
     pub updated_at: Option<chrono::NaiveDateTime>,
 }
 
-pub fn batch_insert(connection: &mut PgConnection, records: &Vec<Offer>) -> Result<usize> {
+pub fn batch_insert(
+    connection: &mut PgConnection, records: &Vec<Offer>,
+) -> Result<usize> {
     insert_into(offers::table)
         .values(records)
         .execute(connection)

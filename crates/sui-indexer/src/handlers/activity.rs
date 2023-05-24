@@ -11,7 +11,9 @@ pub fn parse_tokens_activity(
     let changed_tokens = tokens
         .iter()
         .filter_map(|(objects, token)| {
-            if *objects == ObjectStatus::Wrapped || *objects == ObjectStatus::Mutated {
+            if *objects == ObjectStatus::Wrapped
+                || *objects == ObjectStatus::Mutated
+            {
                 return Some(token.clone());
             }
             None
@@ -29,8 +31,10 @@ pub fn parse_tokens_activity(
             BobYardEvent::List(list) => {
                 let _ = changed_tokens.iter().for_each(|token| {
                     if token.0.token_id == list.list_item_id {
-                        let mut list_act =
-                            Activity::new_from_token_with_type(ActivityType::Listed, &token);
+                        let mut list_act = Activity::new_from_token_with_type(
+                            ActivityType::Listed,
+                            &token,
+                        );
                         list_act.from_address = Some(token.1.clone());
                         list_act.to_address = Some(token.1.clone());
                         list_act.token_amount = list.ask.parse().unwrap();
@@ -42,8 +46,10 @@ pub fn parse_tokens_activity(
             BobYardEvent::DeList(delist) => {
                 let _ = changed_tokens.iter().for_each(|token| {
                     if token.0.token_id == delist.list_item_id {
-                        let mut list_act =
-                            Activity::new_from_token_with_type(ActivityType::Canceled, &token);
+                        let mut list_act = Activity::new_from_token_with_type(
+                            ActivityType::Canceled,
+                            &token,
+                        );
                         list_act.from_address = Some(token.1.clone());
                         list_act.to_address = Some(token.1.clone());
                         list_act.token_amount = delist.ask.parse().unwrap();
@@ -56,8 +62,10 @@ pub fn parse_tokens_activity(
             BobYardEvent::Buy(buy) => {
                 let _ = changed_tokens.iter().for_each(|token| {
                     if token.0.token_id == buy.item_id {
-                        let mut list_act =
-                            Activity::new_from_token_with_type(ActivityType::Sold, &token);
+                        let mut list_act = Activity::new_from_token_with_type(
+                            ActivityType::Sold,
+                            &token,
+                        );
                         list_act.from_address = Some(buy.owner.clone());
                         list_act.to_address = Some(buy.buyer.clone());
                         list_act.token_amount = buy.ask.parse().unwrap();
@@ -69,11 +77,14 @@ pub fn parse_tokens_activity(
             BobYardEvent::AcceptOffer(buy) => {
                 let _ = changed_tokens.iter().for_each(|token| {
                     if token.0.token_id == buy.item_id {
-                        let mut list_act =
-                            Activity::new_from_token_with_type(ActivityType::Sold, &token);
+                        let mut list_act = Activity::new_from_token_with_type(
+                            ActivityType::Sold,
+                            &token,
+                        );
                         list_act.from_address = Some(buy.owner.clone());
                         list_act.to_address = Some(buy.buyer.clone());
-                        list_act.token_amount = buy.offer_amount.parse().unwrap();
+                        list_act.token_amount =
+                            buy.offer_amount.parse().unwrap();
                         activity.push(list_act);
                     }
                 });
@@ -93,7 +104,10 @@ pub fn parse_tokens_activity(
             }
         });
         if !have {
-            let list_act = Activity::new_from_token_with_type(ActivityType::Transferred, &token);
+            let list_act = Activity::new_from_token_with_type(
+                ActivityType::Transferred,
+                &token,
+            );
             activity.push(list_act);
         }
     });
