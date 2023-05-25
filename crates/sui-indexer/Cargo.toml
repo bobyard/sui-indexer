@@ -21,17 +21,3 @@ chrono = "0.4.24"
 redis = { version = "0.23.0", features = ["tokio-comp"] }
 diesel-derive-enum = { version = "2.0.1", features = ["postgres"] }
 structopt = "0.3.26"
-
-rusoto_core = "0.48.0"
-rusoto_sqs = "0.48.0"
-rusoto_s3 = "0.48.0"
-lazy_static = "1.4.0"
-dotenv = "0.15.0"
-reqwest = "0.11.17"
-bytes = "1.4.0"
-image = "0.24.6"
-mime_guess = "2.0.4"
-blake3 = "1.3.3"
-lapin = "2.1.1"
-
-

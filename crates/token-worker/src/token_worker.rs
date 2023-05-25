@@ -108,11 +108,14 @@ pub async fn handle_token_create(
                 continue;
             }
         }
-        let mut name = t.token_name.clone();
-        let mut display_name: Vec<_> = name.split("#").collect();
-        if display_name.len() > 1 {
-            display_name.remove(display_name.len() - 1);
-            name = display_name.join(" ").to_string();
+        let mut name = t.token_name.clone().trim().to_string();
+
+        if !name.is_empty() {
+            let mut display_name: Vec<_> = name.split("#").collect();
+            if display_name.len() > 1 {
+                display_name.remove(display_name.len() - 1);
+                name = display_name.join(" ").to_string();
+            }
         }
 
         //query the token numbers
@@ -122,6 +125,13 @@ pub async fn handle_token_create(
         // query the collection
         if let Ok(mut collection) = query_collection(&mut pg, &t.collection_id)
         {
+            if name.is_empty() {
+                name = collection
+                    .collection_name
+                    .trim_end_matches(">")
+                    .to_string();
+            }
+
             if collection.display_name.is_none() {
                 //give the display name with the nft name
                 collection.display_name = Some(name.clone());

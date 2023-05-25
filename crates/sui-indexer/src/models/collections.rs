@@ -37,6 +37,7 @@ pub struct Collection {
 pub struct CollectionMetadata {
     pub collection_id: String,
     pub display_name: Option<String>,
+    pub collection_name: String,
     pub icon: Option<String>,
     pub description: String,
     pub supply: i64,
@@ -48,7 +49,14 @@ pub fn query_collection(
     use crate::schema::collections::dsl::*;
 
     collections
-        .select((collection_id, display_name, icon, description, supply))
+        .select((
+            collection_id,
+            display_name,
+            collection_name,
+            icon,
+            description,
+            supply,
+        ))
         .filter(collection_id.eq(c_id))
         .limit(1)
         .get_result::<CollectionMetadata>(connection)
