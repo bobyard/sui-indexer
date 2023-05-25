@@ -24,6 +24,7 @@ CREATE TABLE tokens (
    "metadata_uri" varchar NOT NULL,
    "metadata_json" varchar,
    "image" varchar,
+   "tx" varchar,
    "status" token_status,
    "created_at" timestamp DEFAULT now(),
    "updated_at" timestamp DEFAULT now()

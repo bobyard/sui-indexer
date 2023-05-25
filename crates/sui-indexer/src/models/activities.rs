@@ -25,6 +25,7 @@ pub enum ActivityType {
 pub struct Activity {
     pub chain_id: i64,
     pub version: i64,
+    pub tx: Option<String>,
     pub event_account_address: String,
     pub event_creation_number: i64,
     pub event_sequence_number: i64,
@@ -61,6 +62,7 @@ impl Activity {
         Activity {
             chain_id: collection.chain_id as i64,
             version: collection.version,
+            tx: None,
             event_account_address: collection.creator_address.clone(),
             event_creation_number: 0,
             event_sequence_number: 0,
@@ -88,6 +90,7 @@ impl Activity {
         Activity {
             chain_id: token.chain_id,
             version: token.version,
+            tx: token.tx.clone(),
             event_account_address: token.creator_address.clone(),
             event_creation_number: 0,
             event_sequence_number: 0,

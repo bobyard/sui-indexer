@@ -11,6 +11,7 @@ CREATE TABLE activities (
    "id" BIGSERIAL PRIMARY KEY,
    "chain_id" int8 NOT NULL,
    "version" int8 NOT NULL,
+   "tx" text,
    "event_account_address" text NOT NULL,
    "event_creation_number" int8 NOT NULL,
    "event_sequence_number" int8 NOT NULL,

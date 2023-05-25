@@ -3,7 +3,7 @@ use crate::models::activities::{
 };
 use crate::models::tokens::{
     batch_change as batch_change_tokens, batch_insert as batch_insert_tokens,
-    delete, set_status_delete, Token, TokenStatus,
+    set_status_delete, Token, TokenStatus,
 };
 use crate::ObjectStatus;
 use anyhow::{anyhow, Result};
@@ -43,6 +43,13 @@ pub fn parse_tokens(
 
                     let display_json = serde_json::to_string(&kv_set).unwrap();
 
+                    let tx: Option<String> =
+                        if let Some(ok) = obj.previous_transaction {
+                            Some(ok.to_string())
+                        } else {
+                            None
+                        };
+
                     return Some((
                         status.clone(),
                         (
@@ -63,6 +70,7 @@ pub fn parse_tokens(
                                 metadata_uri: image_url,
                                 metadata_json: Some(display_json),
                                 image: None,
+                                tx,
                                 status: TokenStatus::EXIST,
                                 created_at: Some(
                                     NaiveDateTime::from_timestamp_millis(

@@ -35,6 +35,7 @@ pub struct Token {
     pub metadata_uri: String,
     pub metadata_json: Option<String>,
     pub image: Option<String>,
+    pub tx: Option<String>,
     pub status: TokenStatus,
     pub created_at: Option<chrono::NaiveDateTime>,
     pub updated_at: Option<chrono::NaiveDateTime>,
@@ -72,7 +73,7 @@ pub fn batch_change(
             tokens::version.eq(excluded(tokens::version)),
             tokens::owner_address.eq(excluded(tokens::owner_address)),
             tokens::updated_at.eq(excluded(tokens::updated_at)),
-            tokens::status.eq(excluded(tokens::status)),
+            tokens::tx.eq(excluded(tokens::tx)),
             //tokens::image.eq(excluded(tokens::image)),
         ))
         .execute(connection)
@@ -122,6 +123,9 @@ pub fn set_status_delete(
     connection: &mut PgConnection, t_id: &str,
 ) -> Result<()> {
     use crate::schema::tokens::dsl::*;
+
+    tracing::info!(id = t_id, "Set status_delete",);
+
     let _ = diesel::update(tokens.filter(token_id.eq(t_id)))
         .set(status.eq(TokenStatus::DELETE))
         .execute(connection)?;

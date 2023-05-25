@@ -93,23 +93,21 @@ impl Indexer {
             let token_activities =
                 parse_tokens_activity(&bob_yard_events, &tokens);
 
-            for (msg, collection) in collections.iter() {
-                self.sender
-                    .send(IndexingMessage::Collection((
-                        (*msg).into(),
-                        collection.clone(),
-                    )))
-                    .await?;
-            }
+            // for (msg, collection) in collections.iter() {
+            //     self.sender
+            //         .send(IndexingMessage::Collection((
+            //             (*msg).into(),
+            //             collection.clone(),
+            //         )))
+            //         .await?;
+            // }
 
             for (msg, t) in tokens.iter() {
-                dbg!(&msg);
                 self.sender
                     .send(IndexingMessage::Token(((*msg).into(), t.0.clone())))
                     .await?;
             }
 
-            // check_point_data.timestamp_ms
             self.postgres.build_transaction().read_write().run(|conn| {
                 if collections.len() > 0 {
                     collection_indexer_work(&collections, conn).unwrap();
