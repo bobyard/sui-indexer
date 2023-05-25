@@ -60,7 +60,7 @@ pub fn parse_collection(
                 //let project_url =
                 // kv_set.get(&"project_url".to_string()).unwrap_or(&"".
                 // to_string()).clone();
-                let creator = kv_set.get(&"creator".to_string()).cloned();
+                //let creator = kv_set.get(&"creator".to_string()).cloned();
 
                 let collection_data_in_json =
                     serde_json::to_string(&kv_set).unwrap();
@@ -73,7 +73,7 @@ pub fn parse_collection(
                     collection_id: object_id,
                     collection_type: object_type,
                     creator_address: sender.clone(),
-                    display_name: creator,
+                    display_name: None,
                     website: project_url,
                     discord: None,
                     twitter: None,

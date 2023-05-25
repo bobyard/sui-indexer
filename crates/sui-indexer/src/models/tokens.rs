@@ -3,7 +3,16 @@ use anyhow::Result;
 use diesel::insert_into;
 use diesel::prelude::*;
 use diesel::upsert::excluded;
+use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
+
+#[derive(DbEnum, Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
+#[ExistingTypePath = "crate::schema::sql_types::TokenStatus"]
+#[serde(rename_all = "snake_case")]
+pub enum TokenStatus {
+    EXIST,
+    DELETE,
+}
 
 #[derive(
     Insertable, Queryable, PartialEq, Debug, Clone, Serialize, Deserialize,
@@ -26,6 +35,7 @@ pub struct Token {
     pub metadata_uri: String,
     pub metadata_json: Option<String>,
     pub image: Option<String>,
+    pub status: TokenStatus,
     pub created_at: Option<chrono::NaiveDateTime>,
     pub updated_at: Option<chrono::NaiveDateTime>,
 }
@@ -58,11 +68,12 @@ pub fn batch_change(
         .on_conflict(tokens::token_id)
         .do_update()
         .set((
-            // tokens::metadata_json.eq(excluded(tokens::metadata_json)),
-            // tokens::version.eq(excluded(tokens::version)),
-            // tokens::owner_address.eq(excluded(tokens::owner_address)),
-            //tokens::updated_at.eq(excluded(tokens::updated_at)),
-            tokens::image.eq(excluded(tokens::image)),
+            tokens::metadata_json.eq(excluded(tokens::metadata_json)),
+            tokens::version.eq(excluded(tokens::version)),
+            tokens::owner_address.eq(excluded(tokens::owner_address)),
+            tokens::updated_at.eq(excluded(tokens::updated_at)),
+            tokens::status.eq(excluded(tokens::status)),
+            //tokens::image.eq(excluded(tokens::image)),
         ))
         .execute(connection)
         .map_err(|e| anyhow::anyhow!(e.to_string()))
@@ -88,8 +99,32 @@ pub fn update_image_url(
     use crate::schema::tokens::dsl::*;
     let _ = diesel::update(tokens.filter(token_id.eq(token_id_for_update)))
         .set(image.eq(images_url))
-        .get_result::<Token>(connection)?;
+        .execute(connection)?;
 
+    Ok(())
+}
+
+pub fn count_star(conn: &mut PgConnection, c_id: String) -> Result<i64> {
+    use crate::schema::tokens::dsl::*;
+    use diesel::dsl::count_star;
+
+    let a = tokens
+        .select(count_star())
+        .filter(collection_id.eq(c_id))
+        .filter(status.eq(TokenStatus::EXIST))
+        .first::<i64>(conn)
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+    Ok(a)
+}
+
+pub fn set_status_delete(
+    connection: &mut PgConnection, t_id: &str,
+) -> Result<()> {
+    use crate::schema::tokens::dsl::*;
+    let _ = diesel::update(tokens.filter(token_id.eq(t_id)))
+        .set(status.eq(TokenStatus::DELETE))
+        .execute(connection)?;
     Ok(())
 }
 

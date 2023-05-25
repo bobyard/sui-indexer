@@ -3,14 +3,15 @@ use futures::future::join_all;
 
 use crate::aws::S3Store;
 use futures::StreamExt;
-use lapin::options::BasicAckOptions;
+use lapin::options::{BasicAckOptions, BasicNackOptions};
 use lapin::types::FieldTable;
 use sui_indexer::indexer::receiver::TOKEN_EXCHANGE;
 use sui_indexer::models::collections::{
     query_collection, update_collection_metadata,
 };
+use sui_indexer::models::tokens::{count_star, set_status_delete};
 use sui_indexer::models::tokens::{update_image_url, Token};
-use tracing::{debug, info};
+use tracing::{error, info};
 
 use crate::PgPool;
 
@@ -22,23 +23,26 @@ const TOKEN_UNWRAP: &str = "token.unwrap";
 const TOKEN_UNWRAP_THEN_DELETE: &str = "token.unwrap_then_delete";
 
 pub async fn batch_run_create_channel(
-    batch: usize, channel: lapin::Channel, pool: PgPool, s3: S3Store,
+    batch: usize, mq: &lapin::Connection, pool: PgPool, s3: S3Store,
 ) -> Result<()> {
     let mut customers = vec![];
 
     for i in 0..batch {
-        customers.push(handle_token_create(
+        let channel = mq.create_channel().await?;
+
+        customers.push(tokio::spawn(handle_token_create(
             i,
-            channel.clone(),
+            channel,
             pool.clone(),
             s3.clone(),
-        ));
+        )));
     }
 
     let res = join_all(customers).await;
     for r in res {
-        r?;
+        let _ = r?;
     }
+
     Ok(())
 }
 
@@ -76,13 +80,14 @@ pub async fn handle_token_create(
     while let Some(delivery) = consumer.next().await {
         let delivery = delivery.expect("error in consumer");
         info!("consumer: {}", TOKEN_CREATE);
-
-        info!("{}", String::from_utf8(delivery.data.clone()).unwrap());
-
         let mut t = match serde_json::from_slice::<Token>(&delivery.data) {
             Ok(t) => t,
             Err(e) => {
-                info!("error deserializing token: {}", e);
+                error!("error deserializing token: {}", e);
+                delivery
+                    .nack(BasicNackOptions::default())
+                    .await
+                    .expect("nack");
                 continue;
             }
         };
@@ -94,32 +99,62 @@ pub async fn handle_token_create(
         // update to s3 store
         match s3.update_with_remote_url(t.metadata_uri.clone()).await {
             Ok(img_hash) => t.image = Some(img_hash),
-            Err(e) => info!("upload to aws err : {}", e.to_string()),
+            Err(e) => {
+                error!("upload to aws err : {}", e.to_string());
+                delivery
+                    .nack(BasicNackOptions::default())
+                    .await
+                    .expect("nack");
+                continue;
+            }
+        }
+        let mut name = t.token_name.clone();
+        let mut display_name: Vec<_> = name.split("#").collect();
+        if display_name.len() > 1 {
+            display_name.remove(display_name.len() - 1);
+            name = display_name.join(" ").to_string();
         }
 
-        // query the collection
-        let mut collection = query_collection(&mut pg, &t.collection_id)?;
-        if collection.display_name.is_none() {
-            //give the display name with the nft name
-            let name = t.token_name.clone();
-            let display_name: Vec<_> = name.split("#").collect();
+        //query the token numbers
+        // let count =
+        //     count_star(&mut pg, t.collection_id.clone()).unwrap_or_default();
 
-            if display_name.len() > 1 {
-                collection.display_name =
-                    Some(display_name.get(0).unwrap().to_string());
-            } else {
+        // query the collection
+        if let Ok(mut collection) = query_collection(&mut pg, &t.collection_id)
+        {
+            if collection.display_name.is_none() {
+                //give the display name with the nft name
                 collection.display_name = Some(name.clone());
+            }
+
+            if collection.icon.is_none() {
+                collection.icon = t.image.clone();
+            }
+            //collection.supply = count;
+            if let Err(e) = update_collection_metadata(
+                &mut pg,
+                &t.collection_id,
+                &collection,
+            ) {
+                error!("{}", e);
+                delivery
+                    .nack(BasicNackOptions::default())
+                    .await
+                    .expect("nack");
+                continue;
             }
         }
 
-        if collection.icon.is_none() {
-            collection.icon = t.image.clone();
+        //info!("count collection_name: {} NFT-number: {}", name, count);
+        if let Err(e) = update_image_url(&mut pg, t.token_id, t.image) {
+            error!("{}", e);
+            delivery
+                .nack(BasicNackOptions::default())
+                .await
+                .expect("nack");
+            continue;
         }
 
-        update_collection_metadata(&mut pg, &t.collection_id, &collection)?;
-        //let change = vec![t];
-        //batch_change(&mut pg, &change)?;
-        update_image_url(&mut pg, t.token_id, t.image)?;
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
     }
 
@@ -166,15 +201,15 @@ pub async fn handle_token_update(channel: lapin::Channel) -> Result<()> {
             }
         };
 
-        dbg!(&t);
-
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
     }
 
     Ok(())
 }
 
-pub async fn handle_token_delete(channel: lapin::Channel) -> Result<()> {
+pub async fn handle_token_delete(
+    channel: lapin::Channel, pool: PgPool,
+) -> Result<()> {
     channel
         .queue_declare(
             TOKEN_DELETE,
@@ -202,6 +237,8 @@ pub async fn handle_token_delete(channel: lapin::Channel) -> Result<()> {
         )
         .await?;
 
+    let mut pg = pool.get()?;
+
     while let Some(delivery) = consumer.next().await {
         let delivery = delivery.expect("error in consumer");
         info!("consumer: {}", TOKEN_DELETE);
@@ -213,7 +250,24 @@ pub async fn handle_token_delete(channel: lapin::Channel) -> Result<()> {
                 continue;
             }
         };
-        dbg!(&t);
+
+        //delete token
+        //set_status_delete(&mut pg, &t.token_id)?;
+
+        let mut name = t.token_name.clone();
+        let mut display_name: Vec<_> = name.split("#").collect();
+        if display_name.len() > 1 {
+            display_name.remove(display_name.len() - 1);
+            name = display_name.join(" ").to_string();
+        }
+
+        // query the collection
+        let mut collection = query_collection(&mut pg, &t.collection_id)?;
+        //query the token numbers
+        let count = count_star(&mut pg, t.collection_id.clone())?;
+        info!("count collection_name: {} NFT-number: {}", name, count);
+        collection.supply = count;
+        update_collection_metadata(&mut pg, &t.collection_id, &collection)?;
 
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
     }
@@ -260,8 +314,6 @@ pub async fn handle_token_wrap(channel: lapin::Channel) -> Result<()> {
                 continue;
             }
         };
-        dbg!(&t);
-
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
     }
 
@@ -307,8 +359,6 @@ pub async fn handle_token_unwrap(channel: lapin::Channel) -> Result<()> {
                 continue;
             }
         };
-        dbg!(&t);
-
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
     }
 
@@ -356,8 +406,6 @@ pub async fn handle_token_unwrap_when_delete(
                 continue;
             }
         };
-        dbg!(&t);
-
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
     }
 

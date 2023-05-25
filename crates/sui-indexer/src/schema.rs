@@ -16,6 +16,10 @@ pub mod sql_types {
     #[derive(diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "order_type"))]
     pub struct OrderType;
+
+    #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "token_status"))]
+    pub struct TokenStatus;
 }
 
 diesel::table! {
@@ -171,6 +175,9 @@ diesel::table! {
 }
 
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::TokenStatus;
+
     tokens (token_id) {
         chain_id -> Int8,
         token_id -> Varchar,
@@ -188,6 +195,7 @@ diesel::table! {
         metadata_uri -> Varchar,
         metadata_json -> Nullable<Varchar>,
         image -> Nullable<Varchar>,
+        status -> Nullable<TokenStatus>,
         created_at -> Nullable<Timestamp>,
         updated_at -> Nullable<Timestamp>,
     }

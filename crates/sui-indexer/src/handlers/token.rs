@@ -3,7 +3,7 @@ use crate::models::activities::{
 };
 use crate::models::tokens::{
     batch_change as batch_change_tokens, batch_insert as batch_insert_tokens,
-    delete, Token,
+    delete, set_status_delete, Token, TokenStatus,
 };
 use crate::ObjectStatus;
 use anyhow::{anyhow, Result};
@@ -63,6 +63,7 @@ pub fn parse_tokens(
                                 metadata_uri: image_url,
                                 metadata_json: Some(display_json),
                                 image: None,
+                                status: TokenStatus::EXIST,
                                 created_at: Some(
                                     NaiveDateTime::from_timestamp_millis(
                                         *timestamp as i64,
@@ -123,7 +124,9 @@ pub fn token_indexer_work(
     let changed_tokens = tokens
         .iter()
         .filter_map(|(objects, token)| {
-            if *objects == ObjectStatus::Mutated {
+            if *objects == ObjectStatus::Mutated
+                || *objects == ObjectStatus::Unwrapped
+            {
                 return Some(token.clone());
             }
             None
@@ -173,7 +176,7 @@ pub fn token_indexer_work(
         .collect::<Vec<(Token, String)>>();
     if deleted_tokens.len() > 0 {
         for t in deleted_tokens {
-            delete(pg, &t.0.token_id).map_err(|e| {
+            set_status_delete(pg, &t.0.token_id).map_err(|e| {
                 anyhow!("DeleteTokens failed {}", e.to_string())
             })?;
         }

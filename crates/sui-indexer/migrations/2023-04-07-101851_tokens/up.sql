@@ -1,3 +1,11 @@
+DO
+$$
+BEGIN
+CREATE TYPE token_status AS ENUM ('exist', 'delete');
+END
+$$;
+
+
 -- Your SQL goes here
 CREATE TABLE tokens (
    "chain_id" BIGINT NOT NULL,
@@ -16,6 +24,7 @@ CREATE TABLE tokens (
    "metadata_uri" varchar NOT NULL,
    "metadata_json" varchar,
    "image" varchar,
+   "status" token_status,
    "created_at" timestamp DEFAULT now(),
    "updated_at" timestamp DEFAULT now()
 );

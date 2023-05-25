@@ -42,11 +42,9 @@ pub struct Collection {
 pub struct CollectionMetadata {
     pub collection_id: String,
     pub display_name: Option<String>,
-    pub website: Option<String>,
-    pub discord: Option<String>,
-    pub twitter: Option<String>,
     pub icon: Option<String>,
     pub description: String,
+    pub supply: i64,
 }
 
 pub fn query_collection(
@@ -55,15 +53,7 @@ pub fn query_collection(
     use crate::schema::collections::dsl::*;
 
     collections
-        .select((
-            collection_id,
-            display_name,
-            website,
-            discord,
-            twitter,
-            icon,
-            description,
-        ))
+        .select((collection_id, display_name, icon, description, supply))
         .filter(collection_id.eq(c_id))
         .limit(1)
         .get_result::<CollectionMetadata>(connection)
@@ -80,6 +70,7 @@ pub fn update_collection_metadata(
             (display_name.eq(new_meta.display_name.clone())),
             (description.eq(new_meta.description.clone())),
             (icon.eq(new_meta.icon.clone())),
+            (supply.eq(new_meta.supply.clone())),
         ))
         .filter(collection_id.eq(c_id))
         .execute(connection)?;
