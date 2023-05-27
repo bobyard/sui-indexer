@@ -336,7 +336,7 @@ pub async fn handle_token_unwrap(channel: lapin::Channel) -> Result<()> {
     {
         c
     } else {
-        let _ = create_and_bind(&channel, &TOKEN_UNWRAP).await;
+        let _ = create_and_bind(&channel, &TOKEN_UNWRAP).await?;
         channel
             .basic_consume(
                 TOKEN_UNWRAP,
