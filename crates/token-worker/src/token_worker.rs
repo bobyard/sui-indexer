@@ -9,7 +9,7 @@ use sui_indexer::indexer::receiver::TOKEN_EXCHANGE;
 use sui_indexer::models::collections::{
     query_collection, update_collection_metadata,
 };
-use sui_indexer::models::tokens::{count_star, set_status_delete};
+use sui_indexer::models::tokens::count_star;
 use sui_indexer::models::tokens::{update_image_url, Token};
 use tracing::{error, info};
 
@@ -49,32 +49,29 @@ pub async fn batch_run_create_channel(
 pub async fn handle_token_create(
     i: usize, channel: lapin::Channel, pool: PgPool, mut s3: S3Store,
 ) -> Result<()> {
-    channel
-        .queue_declare(
-            TOKEN_CREATE,
-            lapin::options::QueueDeclareOptions::default(),
-            FieldTable::default(),
-        )
-        .await?;
-
-    channel
-        .queue_bind(
-            TOKEN_CREATE,
-            TOKEN_EXCHANGE,
-            TOKEN_CREATE,
-            lapin::options::QueueBindOptions::default(),
-            FieldTable::default(),
-        )
-        .await?;
-
-    let mut consumer = channel
+    let mut consumer = if let Ok(c) = channel
         .basic_consume(
             TOKEN_CREATE,
             format!("server-side-token-create-worker-{}", i).as_str(),
             lapin::options::BasicConsumeOptions::default(),
             FieldTable::default(),
         )
-        .await?;
+        .await
+    {
+        c
+    } else {
+        let _ = create_and_bind(&channel, &TOKEN_UNWRAP_THEN_DELETE).await;
+        channel
+            .basic_consume(
+                TOKEN_CREATE,
+                format!("server-side-token-create-worker-{}", i).as_str(),
+                lapin::options::BasicConsumeOptions::default(),
+                FieldTable::default(),
+            )
+            .await
+            .unwrap()
+    };
+
     let mut pg = pool.get()?;
 
     while let Some(delivery) = consumer.next().await {
@@ -287,32 +284,28 @@ pub async fn handle_token_delete(
 }
 
 pub async fn handle_token_wrap(channel: lapin::Channel) -> Result<()> {
-    channel
-        .queue_declare(
-            TOKEN_WRAP,
-            lapin::options::QueueDeclareOptions::default(),
-            FieldTable::default(),
-        )
-        .await?;
-
-    channel
-        .queue_bind(
-            TOKEN_WRAP,
-            TOKEN_EXCHANGE,
-            TOKEN_WRAP,
-            lapin::options::QueueBindOptions::default(),
-            FieldTable::default(),
-        )
-        .await?;
-
-    let mut consumer = channel
+    let mut consumer = if let Ok(c) = channel
         .basic_consume(
             TOKEN_WRAP,
-            "server-side-token-update-worker",
+            "server-side-token-wrap-worker",
             lapin::options::BasicConsumeOptions::default(),
             FieldTable::default(),
         )
-        .await?;
+        .await
+    {
+        c
+    } else {
+        let _ = create_and_bind(&channel, &TOKEN_WRAP).await;
+        channel
+            .basic_consume(
+                TOKEN_WRAP,
+                "server-side-token-wrap-worker",
+                lapin::options::BasicConsumeOptions::default(),
+                FieldTable::default(),
+            )
+            .await
+            .unwrap()
+    };
 
     while let Some(delivery) = consumer.next().await {
         let delivery = delivery.expect("error in consumer");
@@ -332,32 +325,28 @@ pub async fn handle_token_wrap(channel: lapin::Channel) -> Result<()> {
 }
 
 pub async fn handle_token_unwrap(channel: lapin::Channel) -> Result<()> {
-    channel
-        .queue_declare(
-            TOKEN_UNWRAP,
-            lapin::options::QueueDeclareOptions::default(),
-            FieldTable::default(),
-        )
-        .await?;
-
-    channel
-        .queue_bind(
-            TOKEN_UNWRAP,
-            TOKEN_EXCHANGE,
-            TOKEN_UNWRAP,
-            lapin::options::QueueBindOptions::default(),
-            FieldTable::default(),
-        )
-        .await?;
-
-    let mut consumer = channel
+    let mut consumer = if let Ok(c) = channel
         .basic_consume(
             TOKEN_UNWRAP,
-            "server-side-token-update-worker",
+            "server-side-token-unwrap-worker",
             lapin::options::BasicConsumeOptions::default(),
             FieldTable::default(),
         )
-        .await?;
+        .await
+    {
+        c
+    } else {
+        let _ = create_and_bind(&channel, &TOKEN_UNWRAP).await;
+        channel
+            .basic_consume(
+                TOKEN_UNWRAP,
+                "server-side-token-unwrap-worker",
+                lapin::options::BasicConsumeOptions::default(),
+                FieldTable::default(),
+            )
+            .await
+            .unwrap()
+    };
 
     while let Some(delivery) = consumer.next().await {
         let delivery = delivery.expect("error in consumer");
@@ -379,32 +368,28 @@ pub async fn handle_token_unwrap(channel: lapin::Channel) -> Result<()> {
 pub async fn handle_token_unwrap_when_delete(
     channel: lapin::Channel,
 ) -> Result<()> {
-    channel
-        .queue_declare(
-            TOKEN_UNWRAP_THEN_DELETE,
-            lapin::options::QueueDeclareOptions::default(),
-            FieldTable::default(),
-        )
-        .await?;
-
-    channel
-        .queue_bind(
-            TOKEN_UNWRAP_THEN_DELETE,
-            TOKEN_EXCHANGE,
-            TOKEN_UNWRAP_THEN_DELETE,
-            lapin::options::QueueBindOptions::default(),
-            FieldTable::default(),
-        )
-        .await?;
-
-    let mut consumer = channel
+    let mut consumer = if let Ok(c) = channel
         .basic_consume(
             TOKEN_UNWRAP_THEN_DELETE,
             "server-side-token-update-worker",
             lapin::options::BasicConsumeOptions::default(),
             FieldTable::default(),
         )
-        .await?;
+        .await
+    {
+        c
+    } else {
+        let _ = create_and_bind(&channel, &TOKEN_UNWRAP_THEN_DELETE).await;
+        channel
+            .basic_consume(
+                TOKEN_UNWRAP_THEN_DELETE,
+                "server-side-token-update-worker",
+                lapin::options::BasicConsumeOptions::default(),
+                FieldTable::default(),
+            )
+            .await
+            .unwrap()
+    };
 
     while let Some(delivery) = consumer.next().await {
         let delivery = delivery.expect("error in consumer");
@@ -419,6 +404,30 @@ pub async fn handle_token_unwrap_when_delete(
         };
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
     }
+
+    Ok(())
+}
+
+pub async fn create_and_bind(
+    channel: &lapin::Channel, name: &str,
+) -> Result<()> {
+    channel
+        .queue_declare(
+            name,
+            lapin::options::QueueDeclareOptions::default(),
+            FieldTable::default(),
+        )
+        .await?;
+
+    channel
+        .queue_bind(
+            name,
+            TOKEN_EXCHANGE,
+            name,
+            lapin::options::QueueBindOptions::default(),
+            FieldTable::default(),
+        )
+        .await?;
 
     Ok(())
 }
