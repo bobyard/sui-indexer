@@ -6,4 +6,4 @@ pub mod worker;
 // deadpool_r2d2::Manager<PostgresConnectionManager<NoTls>>;
 
 pub type PgPool =
-    r2d2::Pool<diesel::r2d2::ConnectionManager<diesel::PgConnection>>;
+    diesel::r2d2::Pool<diesel::r2d2::ConnectionManager<diesel::PgConnection>>;

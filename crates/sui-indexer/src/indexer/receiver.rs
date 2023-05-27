@@ -1,13 +1,11 @@
 use crate::models::collections::Collection;
 use crate::models::tokens::Token;
 use crate::ObjectStatus;
-use anyhow::anyhow;
-use image::EncodableLayout;
 use lapin::{
-    options::*, publisher_confirm::Confirmation, types::FieldTable,
-    BasicProperties, Connection, ConnectionProperties, ExchangeKind, Result,
+    options::*, types::FieldTable, BasicProperties, Connection, ExchangeKind,
+    Result,
 };
-use tokio::select;
+
 use tokio::sync::mpsc::Receiver;
 use tracing::info;
 
@@ -143,7 +141,5 @@ pub async fn create_exchange(channel: lapin::Channel) -> Result<()> {
             FieldTable::default(),
         )
         .await?;
-
-    channel.clone();
     Ok(())
 }

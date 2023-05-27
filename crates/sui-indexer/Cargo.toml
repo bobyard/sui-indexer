@@ -9,15 +9,17 @@ path = "src/main.rs"
 
 [dependencies]
 tokio = { version = "1.27.0", features = ["full"] }
-diesel = { version = "2.0.0", features = ["postgres"] }
+diesel = { version = "2.0.3", features = ["postgres"] }
+diesel-async = { version = "0.2.1",features = ["postgres"]}
+diesel-derive-enum = { version = "^2.0.1", features = ["postgres"] }
 futures = "0.3.23"
 serde = { version = "1.0.144", features = ["derive"] }
 serde_json = "1.0.83"
 anyhow = { version = "1.0.64", features = ["backtrace"] }
-sui-sdk = { git = "https://github.com/MystenLabs/sui", rev = "536412e" }
+sui-sdk = { git = "https://github.com/MystenLabs/sui", branch = "mainnet" }
+lapin = "2.1.1"
 tracing = "0.1"
 tracing-subscriber = "0.2.0"
 chrono = "0.4.24"
 redis = { version = "0.23.0", features = ["tokio-comp"] }
-diesel-derive-enum = { version = "2.0.1", features = ["postgres"] }
 structopt = "0.3.26"

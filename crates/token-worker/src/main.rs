@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
     let manager =
         ConnectionManager::<diesel::pg::PgConnection>::new(database_url);
 
-    let pool = r2d2::Pool::builder()
+    let pool = diesel::r2d2::Pool::builder()
         .build(manager)
         .expect("Failed to create pool");
 
