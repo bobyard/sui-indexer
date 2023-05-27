@@ -158,6 +158,7 @@ pub async fn handle_token_create(
         //info!("count collection_name: {} NFT-number: {}", name, count);
         if let Err(e) = update_image_url(&mut pg, t.token_id, t.image) {
             error!("{}", e);
+
             delivery
                 .nack(BasicNackOptions::default())
                 .await

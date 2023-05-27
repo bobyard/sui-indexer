@@ -58,14 +58,23 @@ impl S3Store {
         Ok(())
     }
 
-    pub async fn read_to_buffer(&mut self, url: &str) -> Result<Vec<u8>> {
+    pub async fn read_to_buffer(
+        &mut self, url: &str,
+    ) -> Result<(Vec<u8>, String)> {
         let response = reqwest::get(url).await?;
+        let mut format = "".to_string();
+
+        let headers = response.headers();
+        if headers.contains_key("content-type") {
+            format = headers.get("content-type").unwrap().to_str()?.to_string();
+        }
+
         let bytes = response.bytes().await?;
         let mut buffer = Vec::new();
         let mut reader = bytes.reader();
         let _ = std::io::copy(&mut reader, &mut buffer)?;
 
-        Ok(buffer)
+        Ok((buffer, format))
     }
 
     pub async fn update_with_remote_url(
@@ -78,28 +87,34 @@ impl S3Store {
                 IPFS_GATEWAY.to_string() + url.strip_prefix("ipfs://").unwrap();
         }
 
-        tracing::info!("url {}", &url);
+        tracing::info!("download form url {}", &url);
 
         if url != "" {
-            let buffer = self.read_to_buffer(&url).await?;
+            let (buffer, format) = self.read_to_buffer(&url).await?;
 
             let name = blake3::hash(&buffer);
             tracing::info!("name:{}", name.to_string());
 
             let res = self.find_exist_in_s3(name.to_string()).await;
             if res.is_err() {
-                let mine = if url.ends_with("svg") {
-                    Some("image/svg+xml".to_string())
-                } else if url.ends_with("png") {
-                    Some("image/png".to_string())
-                } else if url.ends_with("jpg") || url.ends_with("jpeg") {
-                    Some("image/jpeg".to_string())
-                } else if url.ends_with("gif") {
-                    Some("image/gif".to_string())
-                } else if url.ends_with("webp") {
-                    Some("image/webp".to_string())
+                let mut mine = None;
+
+                if format.is_empty() {
+                    mine = if url.ends_with("svg") {
+                        Some("image/svg+xml".to_string())
+                    } else if url.ends_with("png") {
+                        Some("image/png".to_string())
+                    } else if url.ends_with("jpg") || url.ends_with("jpeg") {
+                        Some("image/jpeg".to_string())
+                    } else if url.ends_with("gif") {
+                        Some("image/gif".to_string())
+                    } else if url.ends_with("webp") {
+                        Some("image/webp".to_string())
+                    } else {
+                        None
+                    };
                 } else {
-                    None
+                    mine = Some(format);
                 };
 
                 //not exist in s3, we upload it

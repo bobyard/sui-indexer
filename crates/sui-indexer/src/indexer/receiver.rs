@@ -68,18 +68,17 @@ impl IndexSender {
     }
 
     pub async fn process(&mut self) -> Result<()> {
-        let mut channel = self.rabbitmq.create_channel().await?;
+        let channel = self.rabbitmq.create_channel().await?;
         let _ = match create_exchange(channel).await {
             Ok(_) => info!("exchange created"),
             Err(e) => info!("error creating exchange: {}", e),
         };
 
-        let mut channel = self.rabbitmq.create_channel().await?;
+        let channel = self.rabbitmq.create_channel().await?;
 
         while let Some(msg) = self.receiver.recv().await {
             match msg {
-                IndexingMessage::Collection((message, collection)) => {
-                    info!("Collection: {:?}", &collection);
+                IndexingMessage::Collection((_, collection)) => {
                     let payload = serde_json::to_vec(&collection)
                         .expect("send collection to json failed")
                         .clone();
@@ -94,8 +93,6 @@ impl IndexSender {
                         .await?;
                 }
                 IndexingMessage::Token((message, token)) => {
-                    info!("tokens: {:?}", &token);
-
                     let payload = serde_json::to_vec(&token)
                         .expect("send collection to json failed")
                         .clone();
