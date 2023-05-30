@@ -49,28 +49,15 @@ pub async fn batch_run_create_channel(
 pub async fn handle_token_create(
     i: usize, channel: lapin::Channel, pool: PgPool, mut s3: S3Store,
 ) -> Result<()> {
-    let mut consumer = if let Ok(c) = channel
+    let _ = create_and_bind(&channel, &TOKEN_CREATE).await?;
+    let mut consumer = channel
         .basic_consume(
             TOKEN_CREATE,
             format!("server-side-token-create-worker-{}", i).as_str(),
             lapin::options::BasicConsumeOptions::default(),
             FieldTable::default(),
         )
-        .await
-    {
-        c
-    } else {
-        let _ = create_and_bind(&channel, &TOKEN_UNWRAP_THEN_DELETE).await;
-        channel
-            .basic_consume(
-                TOKEN_CREATE,
-                format!("server-side-token-create-worker-{}", i).as_str(),
-                lapin::options::BasicConsumeOptions::default(),
-                FieldTable::default(),
-            )
-            .await
-            .unwrap()
-    };
+        .await?;
 
     let mut pg = pool.get()?;
 
@@ -284,31 +271,19 @@ pub async fn handle_token_delete(
 }
 
 pub async fn handle_token_wrap(channel: lapin::Channel) -> Result<()> {
-    let mut consumer = if let Ok(c) = channel
+    let _ = create_and_bind(&channel, &TOKEN_WRAP).await;
+    let mut consumer = channel
         .basic_consume(
             TOKEN_WRAP,
             "server-side-token-wrap-worker",
             lapin::options::BasicConsumeOptions::default(),
             FieldTable::default(),
         )
-        .await
-    {
-        c
-    } else {
-        let _ = create_and_bind(&channel, &TOKEN_WRAP).await;
-        channel
-            .basic_consume(
-                TOKEN_WRAP,
-                "server-side-token-wrap-worker",
-                lapin::options::BasicConsumeOptions::default(),
-                FieldTable::default(),
-            )
-            .await
-            .unwrap()
-    };
+        .await?;
 
     while let Some(delivery) = consumer.next().await {
         let delivery = delivery.expect("error in consumer");
+
         info!("consumer: {}", TOKEN_WRAP);
 
         let t = match serde_json::from_slice::<Token>(&delivery.data) {
@@ -318,6 +293,7 @@ pub async fn handle_token_wrap(channel: lapin::Channel) -> Result<()> {
                 continue;
             }
         };
+
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
     }
 
@@ -325,28 +301,15 @@ pub async fn handle_token_wrap(channel: lapin::Channel) -> Result<()> {
 }
 
 pub async fn handle_token_unwrap(channel: lapin::Channel) -> Result<()> {
-    let mut consumer = if let Ok(c) = channel
+    let _ = create_and_bind(&channel, &TOKEN_UNWRAP).await?;
+    let mut consumer = channel
         .basic_consume(
             TOKEN_UNWRAP,
             "server-side-token-unwrap-worker",
             lapin::options::BasicConsumeOptions::default(),
             FieldTable::default(),
         )
-        .await
-    {
-        c
-    } else {
-        let _ = create_and_bind(&channel, &TOKEN_UNWRAP).await?;
-        channel
-            .basic_consume(
-                TOKEN_UNWRAP,
-                "server-side-token-unwrap-worker",
-                lapin::options::BasicConsumeOptions::default(),
-                FieldTable::default(),
-            )
-            .await
-            .unwrap()
-    };
+        .await?;
 
     while let Some(delivery) = consumer.next().await {
         let delivery = delivery.expect("error in consumer");

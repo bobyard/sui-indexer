@@ -1,16 +1,9 @@
+use crate::aws::S3Store;
+use crate::token_worker::{batch_run_create_channel, handle_token_unwrap};
+use crate::PgPool;
 use anyhow::Result;
 use lapin::Connection;
-use sui_indexer::indexer::receiver::create_exchange;
 use tracing::error;
-
-use crate::aws::S3Store;
-
-use crate::PgPool;
-
-use crate::token_worker::{
-    batch_run_create_channel, handle_token_delete, handle_token_unwrap,
-    handle_token_unwrap_when_delete, handle_token_update, handle_token_wrap,
-};
 
 pub struct Worker {
     s3: S3Store,
@@ -24,11 +17,11 @@ impl Worker {
     }
 
     pub async fn start(&mut self) -> Result<()> {
-        let channel = self.mq.create_channel().await?;
-        let _ = match create_exchange(channel).await {
-            Ok(_) => tracing::info!("exchange created"),
-            Err(e) => tracing::info!("error creating exchange: {}", e),
-        };
+        //let channel = self.mq.create_channel().await?;
+        // let _ = match create_exchange(channel).await {
+        //     Ok(_) => tracing::info!("exchange created"),
+        //     Err(e) => tracing::info!("error creating exchange: {}", e),
+        // };
 
         //let update_channel = self.mq.create_channel().await?;
         //let create_channel = self.mq.create_channel().await?;

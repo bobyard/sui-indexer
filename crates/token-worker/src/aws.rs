@@ -87,10 +87,13 @@ impl S3Store {
                 IPFS_GATEWAY.to_string() + url.strip_prefix("ipfs://").unwrap();
         }
 
-        tracing::info!("download form url {}", &url);
-
         if url != "" {
             let (buffer, format) = self.read_to_buffer(&url).await?;
+            tracing::info!(
+                "download form url {} respformat: {}",
+                &url,
+                &format
+            );
 
             let name = blake3::hash(&buffer);
             tracing::info!("name:{}", name.to_string());
