@@ -157,12 +157,11 @@ pub async fn handle_token_create(
 }
 
 pub async fn handle_token_update(channel: lapin::Channel) -> Result<()> {
+    let mut opt = lapin::options::QueueDeclareOptions::default();
+    opt.durable = true;
+
     channel
-        .queue_declare(
-            TOKEN_UPDATE,
-            lapin::options::QueueDeclareOptions::default(),
-            FieldTable::default(),
-        )
+        .queue_declare(TOKEN_UPDATE, opt, FieldTable::default())
         .await?;
 
     channel
@@ -374,12 +373,11 @@ pub async fn handle_token_unwrap_when_delete(
 pub async fn create_and_bind(
     channel: &lapin::Channel, name: &str,
 ) -> Result<()> {
+    let mut opt = lapin::options::QueueDeclareOptions::default();
+    opt.durable = true;
+
     channel
-        .queue_declare(
-            name,
-            lapin::options::QueueDeclareOptions::default(),
-            FieldTable::default(),
-        )
+        .queue_declare(name, opt, FieldTable::default())
         .await?;
 
     channel
