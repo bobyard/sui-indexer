@@ -8,7 +8,7 @@ use rusoto_s3::{GetObjectRequest, PutObjectRequest, S3Client, S3};
 
 const REGION: Region = Region::UsWest1;
 const BUCKET: &str = "bobyard";
-const IPFS_GATEWAY: &str = "https://cloudflare-ipfs.com/ipfs/";
+const IPFS_GATEWAY: &str = "https://gateway.ipfs.io/ipfs/";
 
 lazy_static! {
     static ref KEY: String = std::env::var("AWS_ACCESS_KEY_ID")
