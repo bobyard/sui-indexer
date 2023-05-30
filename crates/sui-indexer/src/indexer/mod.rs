@@ -32,7 +32,7 @@ use crate::handlers::bobyard_event_catch::{
 use crate::handlers::collection::{collection_indexer_work, parse_collection};
 use crate::handlers::token::{parse_tokens, token_indexer_work};
 use crate::indexer::receiver::{IndexingMessage, Message};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 extern crate redis;
 
@@ -65,148 +65,191 @@ impl Indexer {
     pub async fn start(&mut self) -> Result<()> {
         let mut redis = self.redis.get_connection()?;
         let mut indexer = query_check_point(&mut self.postgres, 1)? as u64;
+
+        let batch_index = 50;
+
         let mut collects_set: HashMap<String, String> =
             redis.hgetall("collections")?;
 
+        let last_sequence = self
+            .sui_client
+            .read_api()
+            .get_latest_checkpoint_sequence_number()
+            .await?;
+        info!(
+            "start indexer worker the last sequence number: {}",
+            last_sequence
+        );
+
         loop {
-            let (check_point_data, transactions, object_changed, events) =
-                match self.download_checkpoint_data(indexer).await {
-                    Ok(t) => t,
-                    Err(e) => {
-                        debug!(error=?e,"Got some error from node, we can continue to process");
-                        tokio::time::sleep(std::time::Duration::from_millis(
-                            100,
-                        ))
-                        .await;
-                        continue;
+            let download_futures = (indexer..(indexer + batch_index))
+                .map(|x| download_checkpoint_data(&self.sui_client, x));
+
+            let download_results = join_all(download_futures).await;
+            let mut downloaded_checkpoints = vec![];
+
+            for download_result in download_results {
+                if let Ok(checkpoint) = download_result {
+                    downloaded_checkpoints.push(checkpoint);
+                } else {
+                    if let Err(fn_e) = download_result {
+                        warn!(
+                            "Unexpected response from fullnode for checkpoints: {}",
+                            fn_e
+                        );
                     }
-                };
-
-            let collections = parse_collection(
-                &object_changed,
-                &mut redis,
-                &mut collects_set,
-            )?;
-            let tokens = parse_tokens(&object_changed, &mut collects_set)?;
-            let bob_yard_events =
-                parse_bob_yard_event(&events, &self.config.bob_yard)?;
-            let token_activities =
-                parse_tokens_activity(&bob_yard_events, &tokens);
-
-            // for (msg, collection) in collections.iter() {
-            //     self.sender
-            //         .send(IndexingMessage::Collection((
-            //             (*msg).into(),
-            //             collection.clone(),
-            //         )))
-            //         .await?;
-            // }
-
-            for (msg, t) in tokens.iter() {
-                self.sender
-                    .send(IndexingMessage::Token(((*msg).into(), t.0.clone())))
-                    .await?;
+                    break;
+                }
             }
 
-            self.postgres.build_transaction().read_write().run(|conn| {
-                if collections.len() > 0 {
-                    collection_indexer_work(&collections, conn).unwrap();
+            if downloaded_checkpoints.is_empty() {
+                warn!(
+                    "No checkpoints were downloaded for sequence number {}, retrying...",
+                    indexer
+                );
+                continue;
+            }
+
+            for (check_point_data, transactions, object_changed, events) in
+                downloaded_checkpoints
+            {
+                let collections = parse_collection(
+                    &object_changed,
+                    &mut redis,
+                    &mut collects_set,
+                )?;
+
+                let tokens = parse_tokens(&object_changed, &mut collects_set)?;
+                let bob_yard_events =
+                    parse_bob_yard_event(&events, &self.config.bob_yard)?;
+                let token_activities =
+                    parse_tokens_activity(&bob_yard_events, &tokens);
+
+                for (msg, collection) in collections.iter() {
+                    self.sender
+                        .send(IndexingMessage::Collection((
+                            (*msg).into(),
+                            collection.clone(),
+                        )))
+                        .await?;
                 }
 
-                if tokens.len() > 0 {
-                    token_indexer_work(&tokens, conn).unwrap();
+                for (msg, t) in tokens.iter() {
+                    self.sender
+                        .send(IndexingMessage::Token((
+                            (*msg).into(),
+                            t.0.clone(),
+                        )))
+                        .await?;
                 }
 
-                if bob_yard_events.len() > 0 {
-                    event_handle(
-                        &bob_yard_events,
-                        check_point_data.timestamp_ms as i64,
-                        conn,
-                    )
-                    .unwrap();
-                }
+                self.postgres.build_transaction().read_write().run(|conn| {
+                    if collections.len() > 0 {
+                        collection_indexer_work(&collections, conn).unwrap();
+                    }
 
-                if token_activities.len() > 0 {
-                    batch_insert_activities(conn, &token_activities).unwrap();
-                }
+                    if tokens.len() > 0 {
+                        token_indexer_work(&tokens, conn).unwrap();
+                    }
 
-                let updated_row =
-                    diesel::update(check_point.filter(chain_id.eq(1)))
-                        .set(version.eq(indexer as i64))
-                        .get_result::<(i64, i64)>(conn);
+                    if bob_yard_events.len() > 0 {
+                        event_handle(
+                            &bob_yard_events,
+                            check_point_data.timestamp_ms as i64,
+                            conn,
+                        )
+                        .unwrap();
+                    }
 
-                assert_eq!(Ok((1, indexer as i64)), updated_row);
-                Ok::<(), anyhow::Error>(())
-            })?;
+                    if token_activities.len() > 0 {
+                        batch_insert_activities(conn, &token_activities)
+                            .unwrap();
+                    }
 
-            info!(
-                transactions = transactions.len(),
-                indexer, "transactions processed"
-            );
-            indexer += 1;
+                    let updated_row =
+                        diesel::update(check_point.filter(chain_id.eq(1)))
+                            .set(version.eq(indexer as i64))
+                            .get_result::<(i64, i64)>(conn);
+
+                    assert_eq!(Ok((1, indexer as i64)), updated_row);
+                    Ok::<(), anyhow::Error>(())
+                })?;
+
+                info!(
+                    transactions = transactions.len(),
+                    indexer, "transactions processed"
+                );
+
+                indexer += 1;
+            }
+
+            // info!(
+            //     checkpoints = downloaded_checkpoints.len(),
+            //     //transactions = transactions.len(),
+            //     indexer, "transactions processed"
+            // );
+            //indexer += 1;
         }
     }
+}
 
-    async fn download_checkpoint_data(
-        &self, seq: CheckpointSequenceNumber,
-    ) -> Result<(
-        Checkpoint,
-        Vec<SuiTransactionBlockResponse>,
-        Vec<(ObjectStatus, SuiObjectData, String, u64)>,
-        Vec<SuiEvent>,
-    )> {
-        let mut checkpoint =
-            self.sui_client.read_api().get_checkpoint(seq.into()).await;
+async fn download_checkpoint_data(
+    sui_client: &SuiClient, seq: CheckpointSequenceNumber,
+) -> Result<(
+    Checkpoint,
+    Vec<SuiTransactionBlockResponse>,
+    Vec<(ObjectStatus, SuiObjectData, String, u64)>,
+    Vec<SuiEvent>,
+)> {
+    let mut checkpoint = sui_client.read_api().get_checkpoint(seq.into()).await;
 
-        while checkpoint.is_err() {
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            debug!(
-                "CheckPoint fetch failed, retrying... error: {:?}",
-                checkpoint.unwrap_err()
-            );
-            checkpoint =
-                self.sui_client.read_api().get_checkpoint(seq.into()).await;
-        }
+    while checkpoint.is_err() {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        debug!(
+            "CheckPoint fetch failed, retrying... error: {:?}",
+            checkpoint.unwrap_err()
+        );
+        checkpoint = sui_client.read_api().get_checkpoint(seq.into()).await;
+    }
 
-        // unwrap here is safe because we checked for error above
-        let checkpoint = checkpoint.unwrap();
+    // unwrap here is safe because we checked for error above
+    let checkpoint = checkpoint.unwrap();
 
-        let transactions =
-            join_all(checkpoint.transactions.chunks(MULTI_GET_CHUNK_SIZE).map(
-                |digests| {
-                    multi_get_full_transactions(
-                        self.sui_client.read_api().clone(),
-                        digests.to_vec(),
-                    )
-                },
-            ))
-            .await
-            .into_iter()
-            .try_fold(vec![], |mut acc, chunk| {
-                acc.extend(chunk?);
-                Ok::<Vec<SuiTransactionBlockResponse>, Error>(acc)
-            })?;
-
-        let mut object_changes = vec![];
-        for tx in transactions.iter() {
-            let new_object_changes = get_object_changes(tx)?;
-            object_changes.extend(new_object_changes);
-        }
-
-        let mut events: Vec<SuiEvent> = vec![];
-        for tx in transactions.iter() {
-            if let Some(event) = &tx.events {
-                events.extend(event.data.clone());
-            }
-        }
-
-        let changed_objects = fetch_changed_objects(
-            self.sui_client.read_api().clone(),
-            object_changes,
-        )
+    let transactions =
+        join_all(checkpoint.transactions.chunks(MULTI_GET_CHUNK_SIZE).map(
+            |digests| {
+                multi_get_full_transactions(
+                    sui_client.read_api().clone(),
+                    digests.to_vec(),
+                )
+            },
+        ))
         .await
-        .map_err(|e| anyhow::format_err!("fetch_changed_objects err = {e}"))?;
+        .into_iter()
+        .try_fold(vec![], |mut acc, chunk| {
+            acc.extend(chunk?);
+            Ok::<Vec<SuiTransactionBlockResponse>, Error>(acc)
+        })?;
 
-        Ok((checkpoint, transactions, changed_objects, events))
+    let mut object_changes = vec![];
+    for tx in transactions.iter() {
+        let new_object_changes = get_object_changes(tx)?;
+        object_changes.extend(new_object_changes);
     }
+
+    let mut events: Vec<SuiEvent> = vec![];
+    for tx in transactions.iter() {
+        if let Some(event) = &tx.events {
+            events.extend(event.data.clone());
+        }
+    }
+
+    let changed_objects =
+        fetch_changed_objects(sui_client.read_api().clone(), object_changes)
+            .await
+            .map_err(|e| {
+                anyhow::format_err!("fetch_changed_objects error = {e}")
+            })?;
+
+    Ok((checkpoint, transactions, changed_objects, events))
 }
