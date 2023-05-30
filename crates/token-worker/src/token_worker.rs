@@ -29,7 +29,6 @@ pub async fn batch_run_create_channel(
 
     for i in 0..batch {
         let channel = mq.create_channel().await?;
-
         customers.push(tokio::spawn(handle_token_create(
             i,
             channel,
@@ -92,6 +91,7 @@ pub async fn handle_token_create(
                 continue;
             }
         }
+
         let mut name = t.token_name.clone().trim().to_string();
 
         if !name.is_empty() {

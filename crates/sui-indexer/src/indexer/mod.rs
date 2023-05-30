@@ -66,7 +66,7 @@ impl Indexer {
         let mut redis = self.redis.get_connection()?;
         let mut indexer = query_check_point(&mut self.postgres, 1)? as u64;
 
-        let batch_index = 50;
+        let batch_index = 150;
 
         let mut collects_set: HashMap<String, String> =
             redis.hgetall("collections")?;

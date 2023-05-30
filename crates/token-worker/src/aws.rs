@@ -61,7 +61,15 @@ impl S3Store {
     pub async fn read_to_buffer(
         &mut self, url: &str,
     ) -> Result<(Vec<u8>, String)> {
-        let response = reqwest::get(url).await?;
+        let response = reqwest::get(url).await?.error_for_status()?;
+        if !response.status().is_success() && response.status().is_redirection(){
+            return Err(anyhow!("too many requests"));
+        }
+
+        if !response.status().is_success() {
+            return Err(anyhow!("download failed {}", response.status()));
+        }
+
         let mut format = "".to_string();
 
         let headers = response.headers();
