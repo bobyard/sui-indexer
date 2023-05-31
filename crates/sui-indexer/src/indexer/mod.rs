@@ -128,7 +128,7 @@ impl Indexer {
             }
 
             self.check_point_data_sender
-                .send(downloaded_checkpoints.clone())?;
+                .send_async(downloaded_checkpoints.clone()).await?;
 
             indexer += downloaded_checkpoints.len() as u64;
 
