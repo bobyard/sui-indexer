@@ -172,7 +172,7 @@ pub async fn handle_token_update(channel: lapin::Channel) -> Result<()> {
         let delivery = delivery.expect("error in consumer");
         info!("consumer: {}", TOKEN_UPDATE);
 
-        let t = match serde_json::from_slice::<Token>(&delivery.data) {
+        let _t = match serde_json::from_slice::<Token>(&delivery.data) {
             Ok(t) => t,
             Err(e) => {
                 tracing::error!("error deserializing token: {}", e);
@@ -254,7 +254,7 @@ pub async fn handle_token_wrap(channel: lapin::Channel) -> Result<()> {
 
         info!("consumer: {}", TOKEN_WRAP);
 
-        let t = match serde_json::from_slice::<Token>(&delivery.data) {
+        let _t = match serde_json::from_slice::<Token>(&delivery.data) {
             Ok(t) => t,
             Err(e) => {
                 tracing::error!("error deserializing token: {}", e);
@@ -283,7 +283,7 @@ pub async fn handle_token_unwrap(channel: lapin::Channel) -> Result<()> {
         let delivery = delivery.expect("error in consumer");
         info!("consumer: {}", TOKEN_UNWRAP);
 
-        let t = match serde_json::from_slice::<Token>(&delivery.data) {
+        let _t = match serde_json::from_slice::<Token>(&delivery.data) {
             Ok(t) => t,
             Err(e) => {
                 tracing::error!("error deserializing token: {}", e);
@@ -313,7 +313,7 @@ pub async fn handle_token_unwrap_when_delete(
         let delivery = delivery.expect("error in consumer");
         info!("consumer: {}", TOKEN_UNWRAP_THEN_DELETE);
 
-        let t = match serde_json::from_slice::<Token>(&delivery.data) {
+        let _t = match serde_json::from_slice::<Token>(&delivery.data) {
             Ok(t) => t,
             Err(e) => {
                 tracing::error!("error deserializing token: {}", e);

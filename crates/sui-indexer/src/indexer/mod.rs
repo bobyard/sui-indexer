@@ -2,16 +2,20 @@ pub mod receiver;
 
 use anyhow::{Error, Result};
 use diesel::pg::PgConnection;
+use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::ExpressionMethods;
 use diesel::QueryDsl;
 use diesel::RunQueryDsl;
 use futures::future::join_all;
+
+use futures::StreamExt;
 use redis::Commands;
 use std::collections::HashMap;
 
+
 use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{Sender};
 
 use crate::models::activities::batch_insert as batch_insert_activities;
 use crate::models::check_point::query_check_point;
@@ -31,7 +35,7 @@ use crate::handlers::bobyard_event_catch::{
 };
 use crate::handlers::collection::{collection_indexer_work, parse_collection};
 use crate::handlers::token::{parse_tokens, token_indexer_work};
-use crate::indexer::receiver::{IndexingMessage, Message};
+use crate::indexer::receiver::{IndexingMessage};
 use tracing::{debug, info, warn};
 
 extern crate redis;
@@ -40,42 +44,55 @@ use crate::schema::check_point::dsl::check_point;
 use crate::schema::check_point::{chain_id, version};
 use crate::MULTI_GET_CHUNK_SIZE;
 
+#[derive(Clone)]
 pub(crate) struct Indexer {
     config: Config,
     sui_client: SuiClient,
-    postgres: PgConnection,
+    postgres: Pool<ConnectionManager<PgConnection>>,
     redis: redis::Client,
     sender: Sender<IndexingMessage>,
+    check_point_data_sender: flume::Sender<Vec<CheckpointData>>,
+    check_point_data_receiver: flume::Receiver<Vec<CheckpointData>>,
 }
+
+type CheckpointData = (
+    Checkpoint,
+    Vec<SuiTransactionBlockResponse>,
+    Vec<(ObjectStatus, SuiObjectData, String, u64)>,
+    Vec<SuiEvent>,
+);
 
 impl Indexer {
     pub fn new(
-        config: Config, sui_client: SuiClient, postgres: PgConnection,
-        redis: redis::Client, sender: Sender<IndexingMessage>,
+        config: Config, sui_client: SuiClient,
+        postgres: Pool<ConnectionManager<PgConnection>>, redis: redis::Client,
+        sender: Sender<IndexingMessage>,
     ) -> Self {
+        let (s, r) = flume::unbounded::<Vec<CheckpointData>>();
+
         Self {
             config,
             sui_client,
             postgres,
             redis,
             sender,
+            check_point_data_sender: s,
+            check_point_data_receiver: r,
         }
     }
 
-    pub async fn start(&mut self) -> Result<()> {
-        let mut redis = self.redis.get_connection()?;
-        let mut indexer = query_check_point(&mut self.postgres, 1)? as u64;
+    pub async fn run_forever(&mut self) -> Result<()> {
+        let mut pg = self.postgres.get()?;
+        let mut indexer = query_check_point(&mut pg, 1)? as u64;
 
         let batch_index = 150;
-
-        let mut collects_set: HashMap<String, String> =
-            redis.hgetall("collections")?;
 
         let last_sequence = self
             .sui_client
             .read_api()
             .get_latest_checkpoint_sequence_number()
             .await?;
+
         info!(
             "start indexer worker the last sequence number: {}",
             last_sequence
@@ -110,7 +127,34 @@ impl Indexer {
                 continue;
             }
 
-            for (check_point_data, transactions, object_changed, events) in
+            self.check_point_data_sender
+                .send(downloaded_checkpoints.clone())?;
+
+            indexer += downloaded_checkpoints.len() as u64;
+
+            let updated_row =
+                diesel::update(check_point.filter(chain_id.eq(1)))
+                    .set(version.eq(indexer as i64))
+                    .get_result::<(i64, i64)>(&mut pg);
+
+            assert_eq!(Ok((1, indexer as i64)), updated_row);
+
+            info!(
+                check_points = downloaded_checkpoints.len(),
+                indexer, "transactions processed"
+            );
+        }
+    }
+
+    pub async fn handle_check_points(&mut self) -> Result<()> {
+        let mut receiver = self.check_point_data_receiver.clone().into_stream();
+        let mut pg = self.postgres.get()?;
+        let mut redis = self.redis.get_connection()?;
+        let mut collects_set: HashMap<String, String> =
+            redis.hgetall("collections")?;
+
+        while let Some(downloaded_checkpoints) = receiver.next().await {
+            for (check_point_data, _, object_changed, events) in
                 downloaded_checkpoints
             {
                 let collections = parse_collection(
@@ -143,7 +187,7 @@ impl Indexer {
                         .await?;
                 }
 
-                self.postgres.build_transaction().read_write().run(|conn| {
+                pg.build_transaction().read_write().run(|conn| {
                     if collections.len() > 0 {
                         collection_indexer_work(&collections, conn).unwrap();
                     }
@@ -166,30 +210,18 @@ impl Indexer {
                             .unwrap();
                     }
 
-                    let updated_row =
-                        diesel::update(check_point.filter(chain_id.eq(1)))
-                            .set(version.eq(indexer as i64))
-                            .get_result::<(i64, i64)>(conn);
-
-                    assert_eq!(Ok((1, indexer as i64)), updated_row);
+                    // let updated_row =
+                    //     diesel::update(check_point.filter(chain_id.eq(1)))
+                    //         .set(version.eq(indexer as i64))
+                    //         .get_result::<(i64, i64)>(conn);
+                    //
+                    // assert_eq!(Ok((1, indexer as i64)), updated_row);
                     Ok::<(), anyhow::Error>(())
                 })?;
-
-                info!(
-                    transactions = transactions.len(),
-                    indexer, "transactions processed"
-                );
-
-                indexer += 1;
             }
-
-            // info!(
-            //     checkpoints = downloaded_checkpoints.len(),
-            //     //transactions = transactions.len(),
-            //     indexer, "transactions processed"
-            // );
-            //indexer += 1;
         }
+
+        Ok(())
     }
 }
 

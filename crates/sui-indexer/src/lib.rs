@@ -8,7 +8,7 @@ pub mod utils;
 use anyhow::{anyhow, Error, Result};
 use config::Config;
 use diesel::pg::PgConnection;
-use diesel::Connection;
+use diesel::r2d2::ConnectionManager;
 use futures::future::join_all;
 use futures::FutureExt;
 use indexer::Indexer;
@@ -43,8 +43,15 @@ pub async fn run(cfg: Config) -> Result<()> {
         .build(&cfg.node)
         .await
         .map_err(|e| anyhow!("Pg: {e}"))?;
-    let pg = PgConnection::establish(&cfg.postgres)
-        .map_err(|e| anyhow!("Pg: {e}"))?;
+    // let pg = PgConnection::establish(&cfg.postgres)
+    //     .map_err(|e| anyhow!("Pg: {e}"))?;
+
+    let manager = ConnectionManager::<PgConnection>::new(&cfg.postgres);
+
+    let pool = diesel::r2d2::Pool::builder()
+        .build(manager)
+        .expect("Failed to create pool");
+
     let redis = redis::Client::open(&*cfg.redis)?;
     let conn =
         lapin::Connection::connect(&cfg.mq, ConnectionProperties::default())
@@ -59,7 +66,11 @@ pub async fn run(cfg: Config) -> Result<()> {
             .expect("Unexpected error in receiver");
     });
 
-    Indexer::new(cfg, sui, pg, redis, send).start().await
+    let mut index = Indexer::new(cfg, sui, pool, redis, send);
+    let mut handle = index.clone();
+    tokio::spawn(async move { handle.handle_check_points().await });
+
+    index.run_forever().await
 }
 
 pub async fn multi_get_full_transactions(

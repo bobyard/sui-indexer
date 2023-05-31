@@ -62,7 +62,8 @@ impl S3Store {
         &mut self, url: &str,
     ) -> Result<(Vec<u8>, String)> {
         let response = reqwest::get(url).await?.error_for_status()?;
-        if !response.status().is_success() && response.status().is_redirection(){
+        if !response.status().is_success() && response.status().is_redirection()
+        {
             return Err(anyhow!("too many requests"));
         }
 
