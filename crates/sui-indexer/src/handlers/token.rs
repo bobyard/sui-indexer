@@ -11,6 +11,7 @@ use chrono::NaiveDateTime;
 use diesel::PgConnection;
 use std::collections::HashMap;
 use sui_sdk::rpc_types::SuiObjectData;
+use tracing_subscriber::fmt::format;
 
 pub fn parse_tokens(
     object_changes: &Vec<(ObjectStatus, SuiObjectData, String, u64)>,
@@ -24,7 +25,7 @@ pub fn parse_tokens(
                 if let Some(kv_set) = &display.data {
                     let collection_id = coll_set
                         .get(&object_type)
-                        .expect("Collection not found");
+                        .expect(&*format!("collection not found in kv store {}", object_type));
 
                     let name = kv_set
                         .get(&"name".to_string())
