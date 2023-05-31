@@ -85,7 +85,7 @@ impl Indexer {
         let mut pg = self.postgres.get()?;
         let mut indexer = query_check_point(&mut pg, 1)? as u64;
 
-        let batch_index = 150;
+        let batch_index = self.config.batch_index;
 
         let last_sequence = self
             .sui_client
