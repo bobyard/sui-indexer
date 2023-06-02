@@ -1,4 +1,5 @@
 use anyhow::Result;
+use dotenv;
 use structopt::StructOpt;
 use sui_indexer;
 
@@ -6,6 +7,8 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenv::dotenv().ok();
+
     let filter = EnvFilter::try_from_default_env()
         .unwrap_or(EnvFilter::new("info"))
         .add_directive("mio=off".parse().unwrap())

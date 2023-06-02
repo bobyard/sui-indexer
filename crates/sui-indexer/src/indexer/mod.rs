@@ -12,10 +12,9 @@ use futures::StreamExt;
 use redis::Commands;
 use std::collections::HashMap;
 
-
 use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
-use tokio::sync::mpsc::{Sender};
+use tokio::sync::mpsc::Sender;
 
 use crate::models::activities::batch_insert as batch_insert_activities;
 use crate::models::check_point::query_check_point;
@@ -35,7 +34,7 @@ use crate::handlers::bobyard_event_catch::{
 };
 use crate::handlers::collection::{collection_indexer_work, parse_collection};
 use crate::handlers::token::{parse_tokens, token_indexer_work};
-use crate::indexer::receiver::{IndexingMessage};
+use crate::indexer::receiver::IndexingMessage;
 use tracing::{debug, info, warn};
 
 extern crate redis;
@@ -87,16 +86,10 @@ impl Indexer {
 
         let batch_index = self.config.batch_index;
 
-        let last_sequence = self
-            .sui_client
-            .read_api()
-            .get_latest_checkpoint_sequence_number()
-            .await?;
-
-        info!(
-            "start indexer worker the last sequence number: {}",
-            last_sequence
-        );
+        // info!(
+        //     "start indexer worker the last sequence number: {}",
+        //     last_sequence
+        // );
 
         loop {
             let download_futures = (indexer..(indexer + batch_index))
@@ -128,20 +121,28 @@ impl Indexer {
             }
 
             self.check_point_data_sender
-                .send_async(downloaded_checkpoints.clone()).await?;
+                .send_async(downloaded_checkpoints.clone())
+                .await?;
 
             indexer += downloaded_checkpoints.len() as u64;
 
-            let updated_row =
-                diesel::update(check_point.filter(chain_id.eq(1)))
-                    .set(version.eq(indexer as i64))
-                    .get_result::<(i64, i64)>(&mut pg);
-
-            assert_eq!(Ok((1, indexer as i64)), updated_row);
+            // let updated_row =
+            //     diesel::update(check_point.filter(chain_id.eq(1)))
+            //         .set(version.eq(indexer as i64))
+            //         .get_result::<(i64, i64)>(&mut pg);
+            //
+            // assert_eq!(Ok((1, indexer as i64)), updated_row);
+            let last_sequence = self
+                .sui_client
+                .read_api()
+                .get_latest_checkpoint_sequence_number()
+                .await?;
 
             info!(
-                check_points = downloaded_checkpoints.len(),
-                indexer, "transactions processed"
+                last_sequence = last_sequence,
+                download_check_points = downloaded_checkpoints.len(),
+                next_sequence_start = indexer,
+                "transactions processed"
             );
         }
     }
@@ -210,12 +211,21 @@ impl Indexer {
                             .unwrap();
                     }
 
-                    // let updated_row =
-                    //     diesel::update(check_point.filter(chain_id.eq(1)))
-                    //         .set(version.eq(indexer as i64))
-                    //         .get_result::<(i64, i64)>(conn);
-                    //
-                    // assert_eq!(Ok((1, indexer as i64)), updated_row);
+                    let updated_row = diesel::update(
+                        check_point.filter(chain_id.eq(1)),
+                    )
+                    .set(version.eq(check_point_data.sequence_number as i64))
+                    .get_result::<(i64, i64)>(conn);
+                    assert_eq!(
+                        Ok((1, check_point_data.sequence_number as i64)),
+                        updated_row
+                    );
+
+                    info!(
+                        sequence_number = check_point_data.sequence_number,
+                        "indexer store success processed"
+                    );
+
                     Ok::<(), anyhow::Error>(())
                 })?;
             }
@@ -223,6 +233,15 @@ impl Indexer {
 
         Ok(())
     }
+
+    // pub async fn shut_down(&self) {
+    //     info!("Shutting down the index-workers...");
+    //     // Abort the tasks.
+    //
+    //     //self.handles.lock().iter().for_each(|handle| handle.abort());
+    //
+    //     //self.tcp.shut_down().await;
+    // }
 }
 
 async fn download_checkpoint_data(

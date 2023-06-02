@@ -43,11 +43,8 @@ pub async fn run(cfg: Config) -> Result<()> {
         .build(&cfg.node)
         .await
         .map_err(|e| anyhow!("Pg: {e}"))?;
-    // let pg = PgConnection::establish(&cfg.postgres)
-    //     .map_err(|e| anyhow!("Pg: {e}"))?;
 
     let manager = ConnectionManager::<PgConnection>::new(&cfg.postgres);
-
     let pool = diesel::r2d2::Pool::builder()
         .build(manager)
         .expect("Failed to create pool");

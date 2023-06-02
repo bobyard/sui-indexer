@@ -12,20 +12,17 @@ pub struct Worker {
     s3: S3Store,
     pg: PgPool,
     mq: Connection,
+    rds: redis::Client,
 }
 
 impl Worker {
-    pub fn new(s3: S3Store, pg: PgPool, mq: Connection) -> Self {
-        Worker { s3, pg, mq }
+    pub fn new(
+        s3: S3Store, pg: PgPool, mq: Connection, rds: redis::Client,
+    ) -> Self {
+        Worker { s3, pg, mq, rds }
     }
 
     pub async fn start(&mut self) -> Result<()> {
-        //let channel = self.mq.create_channel().await?;
-        // let _ = match create_exchange(channel).await {
-        //     Ok(_) => tracing::info!("exchange created"),
-        //     Err(e) => tracing::info!("error creating exchange: {}", e),
-        // };
-
         let update_channel = self.mq.create_channel().await?;
         let delete_channel = self.mq.create_channel().await?;
         let wrap_channel = self.mq.create_channel().await?;
@@ -38,7 +35,8 @@ impl Worker {
                 20,
                 &self.mq,
                 self.pg.clone(),
-                self.s3.clone()
+                self.s3.clone(),
+                self.rds.clone(),
             ),
             handle_token_delete(delete_channel, self.pg.clone()),
             handle_token_unwrap(unwrap_channel),

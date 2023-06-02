@@ -24,3 +24,4 @@ chrono = "0.4.24"
 redis = { version = "0.23.0", features = ["tokio-comp"] }
 structopt = "0.3.26"
 flume = "0.10.14"
+dotenv = "0.15.0"

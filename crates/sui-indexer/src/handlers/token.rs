@@ -23,9 +23,11 @@ pub fn parse_tokens(
             let object_type = obj.type_.as_ref().unwrap().clone().to_string();
             if let Some(display) = &obj.display {
                 if let Some(kv_set) = &display.data {
-                    let collection_id = coll_set
-                        .get(&object_type)
-                        .expect(&*format!("collection not found in kv store {}", object_type));
+                    let collection_id =
+                        coll_set.get(&object_type).expect(&*format!(
+                            "collection not found in kv store {}",
+                            object_type
+                        ));
 
                     let name = kv_set
                         .get(&"name".to_string())

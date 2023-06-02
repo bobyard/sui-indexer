@@ -3,15 +3,24 @@ use structopt::StructOpt;
 #[derive(StructOpt, Clone, Debug, Default)]
 #[structopt(name = "sui-indexer")]
 pub struct Config {
-    #[structopt(short, long, default_value = "http://localhost:9000")]
+    #[structopt(
+        short,
+        long,
+        default_value = "http://localhost:9000",
+        env = "FULLNODE"
+    )]
     pub node: String,
-    #[structopt(long)]
+    #[structopt(long, env = "DATABASE_URL")]
     pub postgres: String,
-    #[structopt(long, default_value = "redis://127.0.0.1/")]
+    #[structopt(long, default_value = "redis://127.0.0.1/", env = "REDIS")]
     pub redis: String,
-    #[structopt(long)]
+    #[structopt(long, env = "BOBYARD_CONTRACT")]
     pub bob_yard: String,
-    #[structopt(long, default_value = "amqp://127.0.0.1:5672/%2f")]
+    #[structopt(
+        long,
+        default_value = "amqp://127.0.0.1:5672/%2f",
+        env = "RABBITMQ_URI"
+    )]
     pub mq: String,
     #[structopt(long, default_value = "25")]
     pub batch_index: u64,

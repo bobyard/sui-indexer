@@ -35,7 +35,9 @@ async fn main() -> Result<()> {
     let pool = diesel::r2d2::Pool::builder()
         .build(manager)
         .expect("Failed to create pool");
-
+    let redis = redis::Client::open(
+        &*std::env::var("REDIS").expect("REDIS must be set"),
+    )?;
     let rabbit_uri =
         std::env::var("RABBITMQ_URI").expect("RABBITMQ_URI must be set");
     let conn = lapin::Connection::connect(
@@ -44,6 +46,6 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    let mut worker = Worker::new(s3, pool, conn);
+    let mut worker = Worker::new(s3, pool, conn, redis);
     worker.start().await
 }
