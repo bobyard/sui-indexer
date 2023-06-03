@@ -102,7 +102,8 @@ pub fn parse_tokens(
 }
 
 pub fn token_indexer_work(
-    tokens: &Vec<(ObjectStatus, (Token, String))>, pg: &mut PgConnection,
+    tokens: &Vec<(ObjectStatus, (Token, String))>,
+    pg: &mut PgConnection,
 ) -> Result<()> {
     let insert_tokens = tokens
         .iter()

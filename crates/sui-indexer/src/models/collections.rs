@@ -44,7 +44,8 @@ pub struct CollectionMetadata {
 }
 
 pub fn query_collection(
-    connection: &mut PgConnection, c_id: &str,
+    connection: &mut PgConnection,
+    c_id: &str,
 ) -> Result<CollectionMetadata> {
     use crate::schema::collections::dsl::*;
 
@@ -64,7 +65,9 @@ pub fn query_collection(
 }
 
 pub fn update_collection_metadata(
-    connection: &mut PgConnection, c_id: &str, new_meta: &CollectionMetadata,
+    connection: &mut PgConnection,
+    c_id: &str,
+    new_meta: &CollectionMetadata,
 ) -> Result<()> {
     use crate::schema::collections::dsl::*;
 
@@ -82,7 +85,8 @@ pub fn update_collection_metadata(
 }
 
 pub fn batch_insert(
-    connection: &mut PgConnection, new_collections: &Vec<Collection>,
+    connection: &mut PgConnection,
+    new_collections: &Vec<Collection>,
 ) -> Result<usize> {
     insert_into(collections::table)
         .values(new_collections)

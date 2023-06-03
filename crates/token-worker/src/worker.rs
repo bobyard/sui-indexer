@@ -17,7 +17,10 @@ pub struct Worker {
 
 impl Worker {
     pub fn new(
-        s3: S3Store, pg: PgPool, mq: Connection, rds: redis::Client,
+        s3: S3Store,
+        pg: PgPool,
+        mq: Connection,
+        rds: redis::Client,
     ) -> Self {
         Worker { s3, pg, mq, rds }
     }

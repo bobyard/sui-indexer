@@ -17,7 +17,7 @@ use sui_sdk::apis::ReadApi;
 use sui_sdk::rpc_types::SuiTransactionBlockData::V1;
 use sui_sdk::rpc_types::{
     OwnedObjectRef, SuiGetPastObjectRequest, SuiObjectData,
-    SuiObjectDataOptions, SuiTransactionBlockEffectsAPI,
+    SuiObjectDataOptions, SuiObjectRef, SuiTransactionBlockEffectsAPI,
     SuiTransactionBlockResponse, SuiTransactionBlockResponseOptions,
 };
 use sui_sdk::types::digests::TransactionDigest;
@@ -71,7 +71,8 @@ pub async fn run(cfg: Config) -> Result<()> {
 }
 
 pub async fn multi_get_full_transactions(
-    http_client: &ReadApi, digests: Vec<TransactionDigest>,
+    http_client: &ReadApi,
+    digests: Vec<TransactionDigest>,
 ) -> Result<Vec<SuiTransactionBlockResponse>> {
     let sui_transactions = http_client
         .multi_get_transactions_with_options(
@@ -138,6 +139,40 @@ pub fn get_object_changes(
     });
 
     Ok(created.chain(mutated).chain(unwrapped).collect())
+}
+
+pub fn get_deleted_db_objects(
+    block: &SuiTransactionBlockResponse,
+) -> Result<Vec<(ObjectStatus, SuiObjectRef)>> {
+    let effects = match block.effects.clone() {
+        Some(effects) => effects,
+        None => anyhow::bail!("No effects in block"),
+    };
+
+    let transaction = match block.transaction.clone() {
+        Some(transaction) => match transaction.data {
+            V1(v1) => v1,
+        },
+        _ => return Err(anyhow!("Transaction is not V1")),
+    };
+
+    match block.timestamp_ms {
+        Some(_) => (),
+        None => return Err(anyhow!("No timestamp in block")),
+    }
+
+    let deleted = effects.deleted().iter();
+    let deleted = deleted.map(|o| (ObjectStatus::Deleted, o.clone()));
+    let wrapped = effects.wrapped().iter();
+    let wrapped = wrapped.map(|o| (ObjectStatus::Wrapped, o.clone()));
+    let unwrapped_then_deleted = effects.unwrapped_then_deleted().iter();
+    let unwrapped_then_deleted = unwrapped_then_deleted
+        .map(|o| (ObjectStatus::UnwrappedThenDeleted, o.clone()));
+
+    Ok(deleted
+        .chain(wrapped)
+        .chain(unwrapped_then_deleted)
+        .collect::<Vec<_>>())
 }
 
 pub async fn fetch_changed_objects(

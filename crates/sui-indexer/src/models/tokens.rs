@@ -51,7 +51,8 @@ pub struct Metadata {
 }
 
 pub fn batch_insert(
-    connection: &mut PgConnection, new_tokens: &Vec<Token>,
+    connection: &mut PgConnection,
+    new_tokens: &Vec<Token>,
 ) -> Result<usize> {
     insert_into(tokens::table)
         .values(new_tokens)
@@ -62,7 +63,8 @@ pub fn batch_insert(
 }
 
 pub fn batch_change(
-    connection: &mut PgConnection, changed: &Vec<Token>,
+    connection: &mut PgConnection,
+    changed: &Vec<Token>,
 ) -> Result<usize> {
     insert_into(tokens::table)
         .values(changed)
@@ -94,7 +96,8 @@ pub fn query_the_uncache_images(
 }
 
 pub fn update_image_url(
-    connection: &mut PgConnection, token_id_for_update: String,
+    connection: &mut PgConnection,
+    token_id_for_update: String,
     images_url: Option<String>,
 ) -> Result<()> {
     use crate::schema::tokens::dsl::*;
@@ -120,7 +123,8 @@ pub fn count_star(conn: &mut PgConnection, c_id: String) -> Result<i64> {
 }
 
 pub fn set_status_delete(
-    connection: &mut PgConnection, t_id: &str,
+    connection: &mut PgConnection,
+    t_id: &str,
 ) -> Result<()> {
     use crate::schema::tokens::dsl::*;
 

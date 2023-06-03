@@ -24,7 +24,10 @@ const TOKEN_UNWRAP: &str = "token.unwrap";
 const TOKEN_UNWRAP_THEN_DELETE: &str = "token.unwrap_then_delete";
 
 pub async fn batch_run_create_channel(
-    batch: usize, mq: &lapin::Connection, pool: PgPool, s3: S3Store,
+    batch: usize,
+    mq: &lapin::Connection,
+    pool: PgPool,
+    s3: S3Store,
     rds: redis::Client,
 ) -> Result<()> {
     let mut customers = vec![];
@@ -50,7 +53,10 @@ pub async fn batch_run_create_channel(
 }
 
 pub async fn handle_token_create(
-    i: usize, channel: lapin::Channel, pool: PgPool, mut s3: S3Store,
+    i: usize,
+    channel: lapin::Channel,
+    pool: PgPool,
+    mut s3: S3Store,
     mut rds: redis::Client,
 ) -> Result<()> {
     let _ = create_and_bind(&channel, &TOKEN_CREATE).await?;
@@ -207,7 +213,8 @@ pub async fn handle_token_update(channel: lapin::Channel) -> Result<()> {
 }
 
 pub async fn handle_token_delete(
-    channel: lapin::Channel, pool: PgPool,
+    channel: lapin::Channel,
+    pool: PgPool,
 ) -> Result<()> {
     let _ = create_and_bind(&channel, &TOKEN_DELETE).await;
 
@@ -347,7 +354,8 @@ pub async fn handle_token_unwrap_when_delete(
 }
 
 pub async fn create_and_bind(
-    channel: &lapin::Channel, name: &str,
+    channel: &lapin::Channel,
+    name: &str,
 ) -> Result<()> {
     let mut opt = lapin::options::QueueDeclareOptions::default();
     opt.durable = true;

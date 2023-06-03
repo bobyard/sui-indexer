@@ -50,7 +50,8 @@ pub struct QueryList {
 }
 
 pub fn batch_insert(
-    connection: &mut PgConnection, records: &Vec<List>,
+    connection: &mut PgConnection,
+    records: &Vec<List>,
 ) -> Result<usize> {
     insert_into(lists::table)
         .values(records)

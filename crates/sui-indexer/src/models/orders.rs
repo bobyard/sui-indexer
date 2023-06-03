@@ -32,7 +32,8 @@ pub struct Order {
 }
 
 pub fn batch_insert(
-    connection: &mut PgConnection, records: &Vec<Order>,
+    connection: &mut PgConnection,
+    records: &Vec<Order>,
 ) -> Result<usize> {
     insert_into(orders::table)
         .values(records)

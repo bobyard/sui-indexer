@@ -13,7 +13,8 @@ use sui_sdk::rpc_types::{SuiObjectData, SuiParsedData};
 
 pub fn parse_collection(
     object_changes: &Vec<(ObjectStatus, SuiObjectData, String, u64)>,
-    con: &mut redis::Connection, coll_set: &mut HashMap<String, String>,
+    con: &mut redis::Connection,
+    coll_set: &mut HashMap<String, String>,
 ) -> Result<Vec<(ObjectStatus, Collection)>> {
     Ok(object_changes
         .into_iter()
@@ -105,7 +106,8 @@ pub fn parse_collection(
 }
 
 pub fn collection_indexer_work(
-    collections: &Vec<(ObjectStatus, Collection)>, pg: &mut PgConnection,
+    collections: &Vec<(ObjectStatus, Collection)>,
+    pg: &mut PgConnection,
 ) -> Result<()> {
     let insert_collections = collections
         .iter()

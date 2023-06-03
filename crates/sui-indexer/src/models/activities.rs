@@ -47,7 +47,8 @@ pub struct Activity {
 }
 
 pub fn batch_insert(
-    connection: &mut PgConnection, new: &Vec<Activity>,
+    connection: &mut PgConnection,
+    new: &Vec<Activity>,
 ) -> Result<usize> {
     insert_into(activities::table)
         .values(new)
@@ -57,7 +58,8 @@ pub fn batch_insert(
 
 impl Activity {
     pub fn new_from_collection_with_type(
-        t: ActivityType, collection: &Collection,
+        t: ActivityType,
+        collection: &Collection,
     ) -> Activity {
         Activity {
             chain_id: collection.chain_id as i64,
@@ -85,7 +87,8 @@ impl Activity {
     }
 
     pub fn new_from_token_with_type(
-        t: ActivityType, (token, sender): &(Token, String),
+        t: ActivityType,
+        (token, sender): &(Token, String),
     ) -> Activity {
         Activity {
             chain_id: token.chain_id,

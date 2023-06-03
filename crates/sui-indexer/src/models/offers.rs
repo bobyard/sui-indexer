@@ -33,7 +33,8 @@ pub struct Offer {
 }
 
 pub fn batch_insert(
-    connection: &mut PgConnection, records: &Vec<Offer>,
+    connection: &mut PgConnection,
+    records: &Vec<Offer>,
 ) -> Result<usize> {
     insert_into(offers::table)
         .values(records)

@@ -8,7 +8,6 @@ trailing_comma = "Vertical"
 format_code_in_doc_comments = true
 format_strings = false
 error_on_line_overflow = false
-fn_args_layout = "Compressed"
 fn_single_line = true
 where_single_line = true
 reorder_imports = true

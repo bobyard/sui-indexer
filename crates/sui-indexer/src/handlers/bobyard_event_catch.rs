@@ -119,7 +119,8 @@ pub enum BobYardEvent {
 }
 
 pub fn parse_bob_yard_event(
-    events: &Vec<SuiEvent>, event_address: &str,
+    events: &Vec<SuiEvent>,
+    event_address: &str,
 ) -> Result<Vec<BobYardEvent>> {
     let bob_yard_events = events
         .into_iter()
@@ -250,7 +251,9 @@ impl From<&AcceptOffer> for orders::Order {
 }
 
 pub fn event_handle(
-    event: &Vec<BobYardEvent>, event_time: i64, pg: &mut PgConnection,
+    event: &Vec<BobYardEvent>,
+    event_time: i64,
+    pg: &mut PgConnection,
 ) -> Result<()> {
     let _ = event.into_iter().for_each(|e| {
         match e {

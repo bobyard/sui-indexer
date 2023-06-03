@@ -19,12 +19,13 @@ use tokio::sync::mpsc::Sender;
 use crate::models::activities::batch_insert as batch_insert_activities;
 use crate::models::check_point::query_check_point;
 use crate::{
-    fetch_changed_objects, get_object_changes, multi_get_full_transactions,
-    ObjectStatus,
+    fetch_changed_objects, get_deleted_db_objects, get_object_changes,
+    multi_get_full_transactions, ObjectStatus,
 };
 
 use sui_sdk::rpc_types::{
-    Checkpoint, SuiEvent, SuiObjectData, SuiTransactionBlockResponse,
+    Checkpoint, SuiEvent, SuiObjectData, SuiObjectRef,
+    SuiTransactionBlockResponse,
 };
 
 use crate::config::Config;
@@ -63,8 +64,10 @@ type CheckpointData = (
 
 impl Indexer {
     pub fn new(
-        config: Config, sui_client: SuiClient,
-        postgres: Pool<ConnectionManager<PgConnection>>, redis: redis::Client,
+        config: Config,
+        sui_client: SuiClient,
+        postgres: Pool<ConnectionManager<PgConnection>>,
+        redis: redis::Client,
         sender: Sender<IndexingMessage>,
     ) -> Self {
         let (s, r) = flume::unbounded::<Vec<CheckpointData>>();
@@ -86,10 +89,16 @@ impl Indexer {
 
         let batch_index = self.config.batch_index;
 
-        // info!(
-        //     "start indexer worker the last sequence number: {}",
-        //     last_sequence
-        // );
+        let last_sequence = self
+            .sui_client
+            .read_api()
+            .get_latest_checkpoint_sequence_number()
+            .await?;
+
+        info!(
+            "Start indexer Worker at: {} Fullnode sequence number: {}",
+            indexer, last_sequence
+        );
 
         loop {
             let download_futures = (indexer..(indexer + batch_index))
@@ -245,7 +254,8 @@ impl Indexer {
 }
 
 async fn download_checkpoint_data(
-    sui_client: &SuiClient, seq: CheckpointSequenceNumber,
+    sui_client: &SuiClient,
+    seq: CheckpointSequenceNumber,
 ) -> Result<(
     Checkpoint,
     Vec<SuiTransactionBlockResponse>,
@@ -284,8 +294,12 @@ async fn download_checkpoint_data(
 
     let mut object_changes = vec![];
     for tx in transactions.iter() {
-        let new_object_changes = get_object_changes(tx)?;
-        object_changes.extend(new_object_changes);
+        object_changes.extend(get_object_changes(tx)?);
+    }
+
+    let mut object_deletes = vec![];
+    for tx in transactions.iter() {
+        object_deletes.extend(get_deleted_db_objects(tx)?);
     }
 
     let mut events: Vec<SuiEvent> = vec![];
@@ -294,6 +308,18 @@ async fn download_checkpoint_data(
             events.extend(event.data.clone());
         }
     }
+
+    let object_changes = object_changes
+        .into_iter()
+        .filter(|obj| {
+            for del in object_deletes.iter() {
+                if del.1.object_id == obj.0 {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
 
     let changed_objects =
         fetch_changed_objects(sui_client.read_api().clone(), object_changes)

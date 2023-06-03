@@ -59,7 +59,8 @@ impl S3Store {
     }
 
     pub async fn read_to_buffer(
-        &mut self, url: &str,
+        &mut self,
+        url: &str,
     ) -> Result<(Vec<u8>, String)> {
         let response = reqwest::get(url).await?.error_for_status()?;
         if !response.status().is_success() && response.status().is_redirection()
@@ -87,7 +88,8 @@ impl S3Store {
     }
 
     pub async fn update_with_remote_url(
-        &mut self, mut url: String,
+        &mut self,
+        mut url: String,
     ) -> Result<String> {
         let mut img = "".to_string();
 
@@ -151,7 +153,9 @@ impl S3Store {
     }
 
     pub async fn upload_images_to_s3(
-        &mut self, object_key: String, file_data: Vec<u8>,
+        &mut self,
+        object_key: String,
+        file_data: Vec<u8>,
         mut mime: Option<String>,
     ) -> Result<()> {
         if mime.is_none() {
