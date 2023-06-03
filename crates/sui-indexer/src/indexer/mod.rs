@@ -308,7 +308,6 @@ async fn download_checkpoint_data(
             events.extend(event.data.clone());
         }
     }
-    dbg!(&object_deletes);
 
     let object_changes = object_changes
         .into_iter()
