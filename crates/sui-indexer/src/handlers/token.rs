@@ -11,7 +11,6 @@ use chrono::NaiveDateTime;
 use diesel::PgConnection;
 use std::collections::HashMap;
 use sui_sdk::rpc_types::SuiObjectData;
-use tracing_subscriber::fmt::format;
 
 pub fn parse_tokens(
     object_changes: &Vec<(ObjectStatus, SuiObjectData, String, u64)>,

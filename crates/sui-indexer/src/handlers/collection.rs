@@ -68,6 +68,13 @@ pub fn parse_collection(
                 let collection_name =
                     object_type.split("::").last().unwrap().to_string();
 
+                let tx: Option<String> =
+                    if let Some(ok) = obj.previous_transaction {
+                        Some(ok.to_string())
+                    } else {
+                        None
+                    };
+
                 let collection = Collection {
                     chain_id: 1,
                     slug: "".to_string(),
@@ -87,6 +94,7 @@ pub fn parse_collection(
                     version: obj.version.value() as i64,
                     metadata_uri: image_url,
                     metadata: collection_data_in_json,
+                    tx,
                     verify: false,
                     last_metadata_sync: Some(Utc::now().naive_utc()),
                     created_at: NaiveDateTime::from_timestamp_millis(

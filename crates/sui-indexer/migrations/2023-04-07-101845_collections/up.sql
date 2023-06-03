@@ -18,6 +18,7 @@ CREATE TABLE collections (
     "supply" int8 NOT NULL,
     "version" int8 NOT NULL,
     "metadata_uri" text NOT NULL,
+    "tx" varchar(255),
     "metadata" text NOT NULL,
     "verify" bool NOT NULL DEFAULT false,
     "last_metadata_sync" timestamp,

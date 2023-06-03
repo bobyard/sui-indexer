@@ -79,6 +79,7 @@ diesel::table! {
         supply -> Int8,
         version -> Int8,
         metadata_uri -> Text,
+        tx -> Nullable<Varchar>,
         metadata -> Text,
         verify -> Bool,
         last_metadata_sync -> Nullable<Timestamp>,

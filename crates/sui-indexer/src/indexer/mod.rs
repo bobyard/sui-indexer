@@ -24,8 +24,7 @@ use crate::{
 };
 
 use sui_sdk::rpc_types::{
-    Checkpoint, SuiEvent, SuiObjectData, SuiObjectRef,
-    SuiTransactionBlockResponse,
+    Checkpoint, SuiEvent, SuiObjectData, SuiTransactionBlockResponse,
 };
 
 use crate::config::Config;
@@ -262,19 +261,18 @@ async fn download_checkpoint_data(
     Vec<(ObjectStatus, SuiObjectData, String, u64)>,
     Vec<SuiEvent>,
 )> {
-    let mut checkpoint = sui_client.read_api().get_checkpoint(seq.into()).await;
+    let checkpoint = sui_client.read_api().get_checkpoint(seq.into()).await?;
 
-    while checkpoint.is_err() {
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        debug!(
-            "CheckPoint fetch failed, retrying... error: {:?}",
-            checkpoint.unwrap_err()
-        );
-        checkpoint = sui_client.read_api().get_checkpoint(seq.into()).await;
-    }
-
+    // while checkpoint.is_err() {
+    //     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    //     debug!(
+    //         "CheckPoint fetch failed, retrying... error: {:?}",
+    //         checkpoint.unwrap_err()
+    //     );
+    //     checkpoint = sui_client.read_api().get_checkpoint(seq.into()).await;
+    // }
     // unwrap here is safe because we checked for error above
-    let checkpoint = checkpoint.unwrap();
+    //let checkpoint = checkpoint.unwrap();
 
     let transactions =
         join_all(checkpoint.transactions.chunks(MULTI_GET_CHUNK_SIZE).map(

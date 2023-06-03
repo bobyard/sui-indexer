@@ -25,6 +25,7 @@ pub struct Collection {
     pub supply: i64,
     pub version: i64,
     pub metadata_uri: String,
+    pub tx: Option<String>,
     pub metadata: String,
     pub verify: bool,
     pub last_metadata_sync: Option<chrono::NaiveDateTime>,
