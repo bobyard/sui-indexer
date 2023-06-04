@@ -100,6 +100,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "algoliasearch"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "788b41dfd33980749c873189faf8c8600f59be1f4191601f54fc83e4cae6c895"
+dependencies = [
+ "chrono",
+ "derive_builder",
+ "futures",
+ "reqwest",
+ "serde 1.0.163",
+ "serde_derive",
+ "serde_json",
+ "serde_repr",
+ "serde_urlencoded",
+]
+
+[[package]]
 name = "aliasable"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10262,6 +10279,7 @@ dependencies = [
 name = "sui-indexer"
 version = "0.1.0"
 dependencies = [
+ "algoliasearch",
  "anyhow",
  "chrono",
  "diesel",
@@ -11160,6 +11178,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 name = "token-worker"
 version = "0.1.0"
 dependencies = [
+ "algoliasearch",
  "anyhow",
  "blake3",
  "bytes",

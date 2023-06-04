@@ -20,7 +20,7 @@ pub enum ActivityType {
     Sold,
 }
 
-#[derive(Insertable, Debug, Clone)]
+#[derive(Insertable, Debug, Clone, Serialize, Deserialize)]
 #[diesel(table_name = activities)]
 pub struct Activity {
     pub chain_id: i64,
@@ -64,7 +64,7 @@ impl Activity {
         Activity {
             chain_id: collection.chain_id as i64,
             version: collection.version,
-            tx: None,
+            tx: collection.tx.clone(),
             event_account_address: collection.creator_address.clone(),
             event_creation_number: 0,
             event_sequence_number: 0,

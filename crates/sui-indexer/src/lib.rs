@@ -23,6 +23,8 @@ use sui_sdk::rpc_types::{
 use sui_sdk::types::digests::TransactionDigest;
 use sui_sdk::SuiClientBuilder;
 
+use algoliasearch::Client;
+
 use crate::indexer::receiver::{IndexSender, IndexingMessage};
 use sui_sdk::types::base_types::{ObjectID, SequenceNumber};
 
@@ -42,7 +44,7 @@ pub async fn run(cfg: Config) -> Result<()> {
     let sui = SuiClientBuilder::default()
         .build(&cfg.node)
         .await
-        .map_err(|e| anyhow!("Pg: {e}"))?;
+        .map_err(|e| anyhow!("Fullnode: {e}"))?;
 
     let manager = ConnectionManager::<PgConnection>::new(&cfg.postgres);
     let pool = diesel::r2d2::Pool::builder()
@@ -52,7 +54,8 @@ pub async fn run(cfg: Config) -> Result<()> {
     let redis = redis::Client::open(&*cfg.redis)?;
     let conn =
         lapin::Connection::connect(&cfg.mq, ConnectionProperties::default())
-            .await?;
+            .await
+            .map_err(|e| anyhow!("RabbitMQ: {e}"))?;
 
     let (send, recv) = tokio::sync::mpsc::channel::<IndexingMessage>(1000);
     tokio::spawn(async move {

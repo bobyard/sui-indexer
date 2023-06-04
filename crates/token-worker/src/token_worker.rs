@@ -150,7 +150,7 @@ pub async fn handle_token_create(
             if collection.icon.is_none() {
                 collection.icon = t.image.clone();
             }
-            //collection.supply = count;
+
             if let Err(e) = update_collection_metadata(
                 &mut pg,
                 &t.collection_id,

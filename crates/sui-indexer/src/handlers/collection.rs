@@ -115,8 +115,7 @@ pub fn parse_collection(
 
 pub fn collection_indexer_work(
     collections: &Vec<(ObjectStatus, Collection)>,
-    pg: &mut PgConnection,
-) -> Result<()> {
+) -> Result<(Vec<Collection>, Vec<Activity>)> {
     let insert_collections = collections
         .iter()
         .filter_map(|(objects, collection)| {
@@ -126,11 +125,11 @@ pub fn collection_indexer_work(
             None
         })
         .collect::<Vec<Collection>>();
-    if insert_collections.is_empty() {
-        return Ok(());
-    }
+    // if insert_collections.is_empty() {
+    //     return Ok(());
+    // }
 
-    batch_insert(pg, &insert_collections)?;
+    //batch_insert(pg, &insert_collections)?;
     let created_activities = insert_collections
         .iter()
         .map(|collection| {
@@ -140,7 +139,7 @@ pub fn collection_indexer_work(
             )
         })
         .collect::<Vec<Activity>>();
-    batch_insert_activities(pg, &created_activities)?;
+    //batch_insert_activities(pg, &created_activities)?;
 
-    Ok(())
+    Ok((insert_collections, created_activities))
 }

@@ -102,8 +102,7 @@ pub fn parse_tokens(
 
 pub fn token_indexer_work(
     tokens: &Vec<(ObjectStatus, (Token, String))>,
-    pg: &mut PgConnection,
-) -> Result<()> {
+) -> Result<(Vec<Token>, Vec<Activity>)> {
     let insert_tokens = tokens
         .iter()
         .filter_map(|(objects, token)| {
@@ -113,13 +112,16 @@ pub fn token_indexer_work(
             None
         })
         .collect::<Vec<(Token, String)>>();
+    let mut ret_tokens = vec![];
+    let mut ret_act = vec![];
+
     if insert_tokens.len() > 0 {
         let (tokens_for_db, _): (Vec<Token>, Vec<String>) =
             insert_tokens.clone().into_iter().unzip();
-
-        batch_insert_tokens(pg, &tokens_for_db).map_err(|e| {
-            anyhow!("BatchInsertTokens Failed {}", e.to_string())
-        })?;
+        ret_tokens.extend_from_slice(&tokens_for_db);
+        // batch_insert_tokens(pg, &tokens_for_db).map_err(|e| {
+        //     anyhow!("BatchInsertTokens Failed {}", e.to_string())
+        // })?;
         let mint_activitis = insert_tokens
             .iter()
             .map(|token| {
@@ -127,9 +129,10 @@ pub fn token_indexer_work(
             })
             .collect::<Vec<Activity>>();
 
-        batch_insert_activities(pg, &mint_activitis).map_err(|e| {
-            anyhow!("BatchInsertActivities Failed {}", e.to_string())
-        })?;
+        ret_act.extend_from_slice(&mint_activitis);
+        // batch_insert_activities(pg, &mint_activitis).map_err(|e| {
+        //     anyhow!("BatchInsertActivities Failed {}", e.to_string())
+        // })?;
     }
 
     let changed_tokens = tokens
@@ -143,6 +146,7 @@ pub fn token_indexer_work(
             None
         })
         .collect::<Vec<(Token, String)>>();
+
     if changed_tokens.len() > 0 {
         let (tokens_for_db, _): (Vec<Token>, Vec<String>) =
             changed_tokens.clone().into_iter().unzip();
@@ -169,29 +173,38 @@ pub fn token_indexer_work(
             })
             .collect::<Vec<Token>>();
 
-        batch_change_tokens(pg, &tokens_for_db).map_err(|e| {
-            anyhow!("BatchChangeTokens failed {}", e.to_string())
-        })?;
+        ret_tokens.extend_from_slice(&tokens_for_db);
+
+        // let mint_activitis = insert_tokens
+        //     .iter()
+        //     .map(|token| {
+        //         Activity::new_from_token_with_type(ActivityType::Minted,
+        // token)     })
+        //     .collect::<Vec<Activity>>();
+
+        // batch_change_tokens(pg, &tokens_for_db).map_err(|e| {
+        //     anyhow!("BatchChangeTokens failed {}", e.to_string())
+        // })?;
     }
 
-    let deleted_tokens = tokens
-        .iter()
-        .filter_map(|(objects, token)| {
-            if *objects == ObjectStatus::Deleted
-                || *objects == ObjectStatus::UnwrappedThenDeleted
-            {
-                return Some(token.clone());
-            }
-            None
-        })
-        .collect::<Vec<(Token, String)>>();
-    if deleted_tokens.len() > 0 {
-        for t in deleted_tokens {
-            set_status_delete(pg, &t.0.token_id).map_err(|e| {
-                anyhow!("DeleteTokens failed {}", e.to_string())
-            })?;
-        }
-    }
+    // let deleted_tokens = tokens
+    //     .iter()
+    //     .filter_map(|(objects, token)| {
+    //         if *objects == ObjectStatus::Deleted
+    //             || *objects == ObjectStatus::UnwrappedThenDeleted
+    //         {
+    //             return Some(token.clone());
+    //         }
+    //         None
+    //     })
+    //     .collect::<Vec<(Token, String)>>();
+    // if deleted_tokens.len() > 0 {
+    //     for t in deleted_tokens {
+    //         set_status_delete(pg, &t.0.token_id).map_err(|e| {
+    //             anyhow!("DeleteTokens failed {}", e.to_string())
+    //         })?;
+    //     }
+    // }
 
-    Ok(())
+    Ok((ret_tokens, ret_act))
 }

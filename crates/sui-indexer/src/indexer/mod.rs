@@ -1,6 +1,6 @@
 pub mod receiver;
 
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Error, Result};
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::ExpressionMethods;
@@ -16,8 +16,13 @@ use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
 use tokio::sync::mpsc::Sender;
 
-use crate::models::activities::batch_insert as batch_insert_activities;
+use crate::models::activities::{
+    batch_insert as batch_insert_activities, Activity,
+};
 use crate::models::check_point::query_check_point;
+use crate::models::collections::{batch_insert, Collection};
+
+use crate::models::tokens::batch_change;
 use crate::{
     fetch_changed_objects, get_deleted_db_objects, get_object_changes,
     multi_get_full_transactions, ObjectStatus,
@@ -35,7 +40,7 @@ use crate::handlers::bobyard_event_catch::{
 use crate::handlers::collection::{collection_indexer_work, parse_collection};
 use crate::handlers::token::{parse_tokens, token_indexer_work};
 use crate::indexer::receiver::IndexingMessage;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 extern crate redis;
 
@@ -68,6 +73,7 @@ impl Indexer {
         postgres: Pool<ConnectionManager<PgConnection>>,
         redis: redis::Client,
         sender: Sender<IndexingMessage>,
+        //        algo: algoliasearch::Client,
     ) -> Self {
         let (s, r) = flume::unbounded::<Vec<CheckpointData>>();
 
@@ -79,6 +85,7 @@ impl Indexer {
             sender,
             check_point_data_sender: s,
             check_point_data_receiver: r,
+            //            algo,
         }
     }
 
@@ -162,6 +169,19 @@ impl Indexer {
         let mut collects_set: HashMap<String, String> =
             redis.hgetall("collections")?;
 
+        // read ALGOLIA_APPLICATION_ID and ALGOLIA_API_KEY from env
+        // let algo = algoliasearch::Client::new(
+        //     "K6MYR2JP0U",
+        //     "2f820aa6c2ba05b1ea20abdd951e4ca7",
+        // );
+        // let activities_index = algo.init_index::<Activity>("activities");
+
+        let collections_index = algoliasearch::Client::new(
+            "K6MYR2JP0U",
+            "2f820aa6c2ba05b1ea20abdd951e4ca7",
+        )
+        .init_index::<Collection>("collections");
+
         while let Some(downloaded_checkpoints) = receiver.next().await {
             for (check_point_data, _, object_changed, events) in
                 downloaded_checkpoints
@@ -175,7 +195,8 @@ impl Indexer {
                 let tokens = parse_tokens(&object_changed, &mut collects_set)?;
                 let bob_yard_events =
                     parse_bob_yard_event(&events, &self.config.bob_yard)?;
-                let token_activities =
+
+                let mut activities =
                     parse_tokens_activity(&bob_yard_events, &tokens);
 
                 for (msg, collection) in collections.iter() {
@@ -196,13 +217,30 @@ impl Indexer {
                         .await?;
                 }
 
+                let (collections, collect_act) =
+                    collection_indexer_work(&collections)?;
+
+                if !collections.is_empty() {
+                    for collection in &collections {
+                        collections_index
+                            .add_object(collection)
+                            .await
+                            .map_err(|e| anyhow!(format!("{:?}", e)))?;
+                    }
+                }
+
+                activities.extend_from_slice(&collect_act);
+
+                let (tokens, tokens_act) = token_indexer_work(&tokens)?;
+                activities.extend_from_slice(&tokens_act);
+
                 pg.build_transaction().read_write().run(|conn| {
                     if collections.len() > 0 {
-                        collection_indexer_work(&collections, conn).unwrap();
+                        batch_insert(conn, &collections).unwrap();
                     }
 
                     if tokens.len() > 0 {
-                        token_indexer_work(&tokens, conn).unwrap();
+                        batch_change(conn, &tokens).unwrap();
                     }
 
                     if bob_yard_events.len() > 0 {
@@ -214,9 +252,8 @@ impl Indexer {
                         .unwrap();
                     }
 
-                    if token_activities.len() > 0 {
-                        batch_insert_activities(conn, &token_activities)
-                            .unwrap();
+                    if activities.len() > 0 {
+                        batch_insert_activities(conn, &activities).unwrap();
                     }
 
                     let updated_row = diesel::update(
