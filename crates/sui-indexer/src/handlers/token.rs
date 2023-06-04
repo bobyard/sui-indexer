@@ -1,14 +1,13 @@
 use crate::models::activities::{
-    batch_insert as batch_insert_activities, Activity, ActivityType,
+    Activity, ActivityType,
 };
 use crate::models::tokens::{
-    batch_change as batch_change_tokens, batch_insert as batch_insert_tokens,
-    set_status_delete, Token, TokenStatus,
+    Token, TokenStatus,
 };
 use crate::ObjectStatus;
-use anyhow::{anyhow, Result};
-use chrono::NaiveDateTime;
-use diesel::PgConnection;
+use anyhow::{Result};
+
+
 use std::collections::HashMap;
 use sui_sdk::rpc_types::SuiObjectData;
 
@@ -74,18 +73,8 @@ pub fn parse_tokens(
                                 image: None,
                                 tx,
                                 status: TokenStatus::EXIST,
-                                created_at: Some(
-                                    NaiveDateTime::from_timestamp_millis(
-                                        *timestamp as i64,
-                                    )
-                                    .unwrap(),
-                                ),
-                                updated_at: Some(
-                                    NaiveDateTime::from_timestamp_millis(
-                                        *timestamp as i64,
-                                    )
-                                    .unwrap(),
-                                ),
+                                created_at: Some(*timestamp as i64),
+                                updated_at: Some(*timestamp as i64),
                             },
                             sender.clone(),
                         ),

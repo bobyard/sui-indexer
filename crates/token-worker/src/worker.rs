@@ -6,7 +6,7 @@ use crate::token_worker::{
 use crate::PgPool;
 use anyhow::Result;
 use lapin::Connection;
-use sui_indexer::models::collections::Collection;
+
 use tracing::error;
 
 pub struct Worker {
@@ -14,7 +14,6 @@ pub struct Worker {
     pg: PgPool,
     mq: Connection,
     rds: redis::Client,
-    index: algoliasearch::index::Index<Collection>,
 }
 
 impl Worker {
@@ -23,15 +22,8 @@ impl Worker {
         pg: PgPool,
         mq: Connection,
         rds: redis::Client,
-        index: algoliasearch::index::Index<Collection>,
     ) -> Self {
-        Worker {
-            s3,
-            pg,
-            mq,
-            rds,
-            index,
-        }
+        Worker { s3, pg, mq, rds }
     }
 
     pub async fn start(&mut self) -> Result<()> {

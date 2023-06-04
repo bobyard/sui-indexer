@@ -1,12 +1,15 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use futures::future::join_all;
 use redis::Commands;
 
 use crate::aws::S3Store;
+use crate::PgPool;
 use futures::StreamExt;
 use lapin::options::{BasicAckOptions, BasicNackOptions};
 use lapin::types::FieldTable;
+use serde::{Deserialize, Serialize};
 use sui_indexer::indexer::receiver::TOKEN_EXCHANGE;
+use sui_indexer::models::collections::Collection;
 use sui_indexer::models::collections::{
     query_collection, update_collection_metadata,
 };
@@ -14,14 +17,18 @@ use sui_indexer::models::tokens::count_star;
 use sui_indexer::models::tokens::{update_image_url, Token};
 use tracing::{error, info};
 
-use crate::PgPool;
-
 const TOKEN_CREATE: &str = "token.create";
 const TOKEN_UPDATE: &str = "token.update";
 const TOKEN_DELETE: &str = "token.delete";
 const TOKEN_WRAP: &str = "token.wrap";
 const TOKEN_UNWRAP: &str = "token.unwrap";
 const TOKEN_UNWRAP_THEN_DELETE: &str = "token.unwrap_then_delete";
+
+#[derive(Deserialize, Serialize, Debug)]
+struct CollectionObjectId {
+    object_id: String,
+    collection_id: String,
+}
 
 pub async fn batch_run_create_channel(
     batch: usize,
@@ -70,6 +77,20 @@ pub async fn handle_token_create(
         .await?;
 
     let mut pg = pool.get()?;
+
+    let collection_index_read = algoliasearch::Client::new(
+        &std::env::var("ALGOLIA_APPLICATION_ID")
+            .expect("ALGOLIA_APPLICATION_ID must be set"),
+        &std::env::var("ALGOLIA_API_KEY").expect("ALGOLIA_API_KEY must be set"),
+    )
+    .init_index::<CollectionObjectId>("collections");
+
+    let collection_index_write = algoliasearch::Client::new(
+        &std::env::var("ALGOLIA_APPLICATION_ID")
+            .expect("ALGOLIA_APPLICATION_ID must be set"),
+        &std::env::var("ALGOLIA_API_KEY").expect("ALGOLIA_API_KEY must be set"),
+    )
+    .init_index::<Collection>("collections");
 
     while let Some(delivery) = consumer.next().await {
         let delivery = delivery.expect("error in consumer");
@@ -149,6 +170,53 @@ pub async fn handle_token_create(
 
             if collection.icon.is_none() {
                 collection.icon = t.image.clone();
+            }
+
+            let collection_search = collection_index_read
+                .search(collection.collection_id.as_str())
+                .await
+                .map_err(|e| {
+                    anyhow!(format!(
+                        "Failed search collection_id {} error {:?}",
+                        collection.collection_id, e
+                    ))
+                })?;
+
+            dbg!(&collection_search);
+            if collection_search.hits.len() == 1 {
+                for c in collection_search.hits {
+                    collection_index_write
+                        .update_object(&collection, &c.object_id)
+                        .await
+                        .map_err(|e| {
+                            anyhow!(format!(
+                                "Failed update collection_id {} error {:?}",
+                                collection.collection_id, e
+                            ))
+                        })?;
+                }
+            } else {
+                for c in collection_search.hits {
+                    collection_index_write
+                        .delete_object(&c.object_id)
+                        .await
+                        .map_err(|e| {
+                            anyhow!(format!(
+                                "Failed delete collection_id {} error {:?}",
+                                collection.collection_id, e
+                            ))
+                        })?;
+                }
+
+                collection_index_write
+                    .add_object(&collection)
+                    .await
+                    .map_err(|e| {
+                        anyhow!(format!(
+                            "Failed add upgrand collection_id {} error {:?}",
+                            collection.collection_id, e
+                        ))
+                    })?;
             }
 
             if let Err(e) = update_collection_metadata(

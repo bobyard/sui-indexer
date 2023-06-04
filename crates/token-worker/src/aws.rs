@@ -111,10 +111,8 @@ impl S3Store {
 
             let res = self.find_exist_in_s3(name.to_string()).await;
             if res.is_err() {
-                let mut mine = None;
-
-                if format.is_empty() {
-                    mine = if url.ends_with("svg") {
+                let mine = if format.is_empty() {
+                    if url.ends_with("svg") {
                         Some("image/svg+xml".to_string())
                     } else if url.ends_with("png") {
                         Some("image/png".to_string())
@@ -126,9 +124,9 @@ impl S3Store {
                         Some("image/webp".to_string())
                     } else {
                         None
-                    };
+                    }
                 } else {
-                    mine = Some(format);
+                    Some(format)
                 };
 
                 //not exist in s3, we upload it

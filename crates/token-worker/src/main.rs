@@ -2,7 +2,7 @@ use anyhow::Result;
 use diesel::r2d2::ConnectionManager;
 use dotenv::dotenv;
 use lapin::ConnectionProperties;
-use sui_indexer::models::collections::Collection;
+
 use token_worker::aws;
 use token_worker::worker::Worker;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
@@ -54,13 +54,6 @@ async fn main() -> Result<()> {
     // );
     // let activities_index = algo.init_index::<Activity>("activities");
 
-    let index = algoliasearch::Client::new(
-        &std::env::var("ALGOLIA_APPLICATION_ID")
-            .expect("ALGOLIA_APPLICATION_ID must be set"),
-        &std::env::var("ALGOLIA_API_KEY").expect("ALGOLIA_API_KEY must be set"),
-    )
-    .init_index::<Collection>("collections");
-
-    let mut worker = Worker::new(s3, pool, conn, redis, index);
+    let mut worker = Worker::new(s3, pool, conn, redis);
     worker.start().await
 }

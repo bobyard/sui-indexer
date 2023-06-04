@@ -1,12 +1,12 @@
 use crate::models::activities::{
-    batch_insert as batch_insert_activities, Activity, ActivityType,
+    Activity, ActivityType,
 };
-use crate::models::collections::{batch_insert, Collection};
+use crate::models::collections::{Collection};
 use crate::utils::json_to_kv_map;
 use crate::ObjectStatus;
 use anyhow::Result;
-use chrono::{NaiveDateTime, Utc};
-use diesel::PgConnection;
+use chrono::{Utc};
+
 use redis::Commands;
 use std::collections::HashMap;
 use sui_sdk::rpc_types::{SuiObjectData, SuiParsedData};
@@ -77,7 +77,7 @@ pub fn parse_collection(
 
                 let collection = Collection {
                     chain_id: 1,
-                    slug: "".to_string(),
+                    slug: None,
                     collection_id: object_id,
                     collection_type: object_type,
                     creator_address: sender.clone(),
@@ -96,15 +96,11 @@ pub fn parse_collection(
                     metadata: collection_data_in_json,
                     tx,
                     verify: false,
-                    last_metadata_sync: Some(Utc::now().naive_utc()),
-                    created_at: NaiveDateTime::from_timestamp_millis(
-                        *timestamp as i64,
-                    )
-                    .unwrap(),
-                    updated_at: NaiveDateTime::from_timestamp_millis(
-                        *timestamp as i64,
-                    )
-                    .unwrap(),
+                    last_metadata_sync: Utc::now()
+                        .naive_utc()
+                        .timestamp_millis(),
+                    created_at: *timestamp as i64,
+                    updated_at: *timestamp as i64,
                 };
                 return Some((status.clone(), collection));
             }

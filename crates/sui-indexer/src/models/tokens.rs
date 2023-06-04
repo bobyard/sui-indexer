@@ -37,8 +37,8 @@ pub struct Token {
     pub image: Option<String>,
     pub tx: Option<String>,
     pub status: TokenStatus,
-    pub created_at: Option<chrono::NaiveDateTime>,
-    pub updated_at: Option<chrono::NaiveDateTime>,
+    pub created_at: Option<i64>,
+    pub updated_at: Option<i64>,
 }
 
 #[derive(Queryable, PartialEq, Debug, Clone)]

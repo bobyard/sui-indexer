@@ -17,7 +17,7 @@ use sui_sdk::SuiClient;
 use tokio::sync::mpsc::Sender;
 
 use crate::models::activities::{
-    batch_insert as batch_insert_activities, Activity,
+    batch_insert as batch_insert_activities,
 };
 use crate::models::check_point::query_check_point;
 use crate::models::collections::{batch_insert, Collection};
@@ -176,9 +176,16 @@ impl Indexer {
         // );
         // let activities_index = algo.init_index::<Activity>("activities");
 
+        // let collections_index = algoliasearch::Client::new(
+        //     "K6MYR2JP0U",
+        //     "2f820aa6c2ba05b1ea20abdd951e4ca7",
+        // )
+        // .init_index::<Collection>("collections");
         let collections_index = algoliasearch::Client::new(
-            "K6MYR2JP0U",
-            "2f820aa6c2ba05b1ea20abdd951e4ca7",
+            &std::env::var("ALGOLIA_APPLICATION_ID")
+                .expect("ALGOLIA_APPLICATION_ID must be set"),
+            &std::env::var("ALGOLIA_API_KEY")
+                .expect("ALGOLIA_API_KEY must be set"),
         )
         .init_index::<Collection>("collections");
 

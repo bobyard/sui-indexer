@@ -60,8 +60,7 @@ diesel::table! {
 }
 
 diesel::table! {
-    collections (id) {
-        id -> Int4,
+    collections (collection_id) {
         chain_id -> Int4,
         slug -> Nullable<Varchar>,
         collection_id -> Varchar,
@@ -82,9 +81,9 @@ diesel::table! {
         tx -> Nullable<Varchar>,
         metadata -> Text,
         verify -> Bool,
-        last_metadata_sync -> Nullable<Timestamp>,
-        created_at -> Nullable<Timestamp>,
-        updated_at -> Nullable<Timestamp>,
+        last_metadata_sync -> Int8,
+        created_at -> Int8,
+        updated_at -> Int8,
     }
 }
 
@@ -190,12 +189,12 @@ diesel::table! {
         royalty_points_denominator -> Int8,
         owner_address -> Nullable<Varchar>,
         metadata_uri -> Varchar,
-        metadata_json -> Nullable<Varchar>,
+        metadata_json -> Nullable<Text>,
         image -> Nullable<Varchar>,
         tx -> Nullable<Varchar>,
         status -> Nullable<TokenStatus>,
-        created_at -> Nullable<Timestamp>,
-        updated_at -> Nullable<Timestamp>,
+        created_at -> Int8,
+        updated_at -> Int8,
     }
 }
 

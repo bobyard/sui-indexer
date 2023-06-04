@@ -1,9 +1,8 @@
 -- Your SQL goes here
 CREATE TABLE collections (
-    "id" SERIAL PRIMARY KEY,
     "chain_id" int4 NOT NULL,
     "slug" varchar(255),
-    "collection_id" varchar(255) NOT NULL,
+    "collection_id" varchar(255) NOT NULL PRIMARY KEY,
     "collection_type" varchar(255) NOT NULL,
     "creator_address" varchar(255) NOT NULL,
     "royaltie" varchar(255),
@@ -21,7 +20,7 @@ CREATE TABLE collections (
     "tx" varchar(255),
     "metadata" text NOT NULL,
     "verify" bool NOT NULL DEFAULT false,
-    "last_metadata_sync" timestamp,
-    "created_at" timestamp DEFAULT now(),
-    "updated_at" timestamp DEFAULT now()
+    "last_metadata_sync" BIGINT NOT NULL,
+    "created_at" BIGINT NOT NULL,
+    "updated_at" BIGINT NOT NULL
 );

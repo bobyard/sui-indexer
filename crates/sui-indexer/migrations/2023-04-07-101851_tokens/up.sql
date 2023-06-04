@@ -5,7 +5,6 @@ CREATE TYPE token_status AS ENUM ('exist', 'delete');
 END
 $$;
 
-
 -- Your SQL goes here
 CREATE TABLE tokens (
    "chain_id" BIGINT NOT NULL,
@@ -22,12 +21,12 @@ CREATE TABLE tokens (
    "royalty_points_denominator" BIGINT NOT NULL,
    "owner_address" varchar,
    "metadata_uri" varchar NOT NULL,
-   "metadata_json" varchar,
+   "metadata_json" text,
    "image" varchar,
    "tx" varchar,
    "status" token_status,
-   "created_at" timestamp DEFAULT now(),
-   "updated_at" timestamp DEFAULT now()
+   "created_at" BIGINT NOT NULL,
+   "updated_at" BIGINT NOT NULL
 );
 
 CREATE INDEX token_id_index ON tokens (token_id);

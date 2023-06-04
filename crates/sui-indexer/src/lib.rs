@@ -23,7 +23,7 @@ use sui_sdk::rpc_types::{
 use sui_sdk::types::digests::TransactionDigest;
 use sui_sdk::SuiClientBuilder;
 
-use algoliasearch::Client;
+
 
 use crate::indexer::receiver::{IndexSender, IndexingMessage};
 use sui_sdk::types::base_types::{ObjectID, SequenceNumber};
@@ -152,7 +152,7 @@ pub fn get_deleted_db_objects(
         None => anyhow::bail!("No effects in block"),
     };
 
-    let transaction = match block.transaction.clone() {
+    let _transaction = match block.transaction.clone() {
         Some(transaction) => match transaction.data {
             V1(v1) => v1,
         },
