@@ -16,9 +16,7 @@ use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
 use tokio::sync::mpsc::Sender;
 
-use crate::models::activities::{
-    batch_insert as batch_insert_activities,
-};
+use crate::models::activities::batch_insert as batch_insert_activities;
 use crate::models::check_point::query_check_point;
 use crate::models::collections::{batch_insert, Collection};
 

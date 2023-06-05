@@ -1,12 +1,7 @@
-use crate::models::activities::{
-    Activity, ActivityType,
-};
-use crate::models::tokens::{
-    Token, TokenStatus,
-};
+use crate::models::activities::{Activity, ActivityType};
+use crate::models::tokens::{Token, TokenStatus};
 use crate::ObjectStatus;
-use anyhow::{Result};
-
+use anyhow::Result;
 
 use std::collections::HashMap;
 use sui_sdk::rpc_types::SuiObjectData;

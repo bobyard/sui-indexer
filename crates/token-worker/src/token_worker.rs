@@ -107,6 +107,9 @@ pub async fn handle_token_create(
             }
         };
 
+        let mut nack = BasicNackOptions::default();
+        nack.requeue = !delivery.redelivered;
+
         //wait the db process done we can select and update
         //tokio::time::sleep(tokio::time::Duration::from_micros(500)).await;
 
@@ -128,10 +131,7 @@ pub async fn handle_token_create(
                 }
                 Err(e) => {
                     error!("upload to aws err : {}", e.to_string());
-                    delivery
-                        .nack(BasicNackOptions::default())
-                        .await
-                        .expect("nack");
+                    delivery.nack(nack).await.expect("nack");
                     continue;
                 }
             }
@@ -164,7 +164,6 @@ pub async fn handle_token_create(
             }
 
             if collection.display_name.is_none() {
-                //give the display name with the nft name
                 collection.display_name = Some(name.clone());
             }
 
@@ -225,10 +224,7 @@ pub async fn handle_token_create(
                 &collection,
             ) {
                 error!("{}", e);
-                delivery
-                    .nack(BasicNackOptions::default())
-                    .await
-                    .expect("nack");
+                delivery.nack(nack).await.expect("nack");
                 continue;
             }
         }
@@ -237,10 +233,7 @@ pub async fn handle_token_create(
         if let Err(e) = update_image_url(&mut pg, t.token_id, t.image) {
             error!("{}", e);
 
-            delivery
-                .nack(BasicNackOptions::default())
-                .await
-                .expect("nack");
+            delivery.nack(nack).await.expect("nack");
             continue;
         }
 

@@ -23,8 +23,6 @@ use sui_sdk::rpc_types::{
 use sui_sdk::types::digests::TransactionDigest;
 use sui_sdk::SuiClientBuilder;
 
-
-
 use crate::indexer::receiver::{IndexSender, IndexingMessage};
 use sui_sdk::types::base_types::{ObjectID, SequenceNumber};
 

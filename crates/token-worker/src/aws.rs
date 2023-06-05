@@ -8,7 +8,7 @@ use rusoto_s3::{GetObjectRequest, PutObjectRequest, S3Client, S3};
 
 const REGION: Region = Region::UsWest1;
 const BUCKET: &str = "bobyard";
-const IPFS_GATEWAY: &str = "https://gateway.ipfs.io/ipfs/";
+const IPFS_GATEWAY: &str = "https://cloudflare-ipfs.com/ipfs/";
 
 lazy_static! {
     static ref KEY: String = std::env::var("AWS_ACCESS_KEY_ID")
@@ -62,7 +62,13 @@ impl S3Store {
         &mut self,
         url: &str,
     ) -> Result<(Vec<u8>, String)> {
-        let response = reqwest::get(url).await?.error_for_status()?;
+        let req = reqwest::ClientBuilder::new();
+
+        let req = req
+            .connect_timeout(std::time::Duration::from_secs(5))
+            .build()?;
+
+        let response = req.get(url).send().await?.error_for_status()?;
         if !response.status().is_success() && response.status().is_redirection()
         {
             return Err(anyhow!("too many requests"));
