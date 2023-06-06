@@ -134,14 +134,51 @@ pub fn token_indexer_work(
     if changed_tokens.len() > 0 {
         let (tokens_for_db, _): (Vec<Token>, Vec<String>) =
             changed_tokens.clone().into_iter().unzip();
+        // let tokens_for_db1 = tokens_for_db.clone();
 
-        let tokens_for_db1 = tokens_for_db.clone();
-        let tokens_for_db = tokens_for_db
+        // let tokens_for_db = tokens_for_db
+        //     .clone()
+        //     .into_iter()
+        //     .filter(|e| {
+        //         let mut inner_version = e.version;
+
+        //         for t in &tokens_for_db1 {
+        //             if e.token_id == t.token_id {
+        //                 if e.version == t.version {
+        //                 } else {
+        //                     inner_version = t.version;
+        //                 }
+        //             }
+        //         }
+
+        //         if e.version != inner_version {
+        //             return false;
+        //         }
+        //         return true;
+        //     })
+        //     .collect::<Vec<Token>>();
+        ret_tokens.extend_from_slice(&tokens_for_db);
+
+        // let mint_activitis = insert_tokens
+        //     .iter()
+        //     .map(|token| {
+        //         Activity::new_from_token_with_type(ActivityType::Minted,
+        // token)     })
+        //     .collect::<Vec<Activity>>();
+
+        // batch_change_tokens(pg, &tokens_for_db).map_err(|e| {
+        //     anyhow!("BatchChangeTokens failed {}", e.to_string())
+        // })?;
+    }
+
+    if ret_tokens.len() > 0 {
+        let tokens_for_db = ret_tokens
+            .clone()
             .into_iter()
             .filter(|e| {
                 let mut inner_version = e.version;
 
-                for t in &tokens_for_db1 {
+                for t in &ret_tokens {
                     if e.token_id == t.token_id {
                         if e.version == t.version {
                         } else {
@@ -157,18 +194,7 @@ pub fn token_indexer_work(
             })
             .collect::<Vec<Token>>();
 
-        ret_tokens.extend_from_slice(&tokens_for_db);
-
-        // let mint_activitis = insert_tokens
-        //     .iter()
-        //     .map(|token| {
-        //         Activity::new_from_token_with_type(ActivityType::Minted,
-        // token)     })
-        //     .collect::<Vec<Activity>>();
-
-        // batch_change_tokens(pg, &tokens_for_db).map_err(|e| {
-        //     anyhow!("BatchChangeTokens failed {}", e.to_string())
-        // })?;
+        ret_tokens = tokens_for_db;
     }
 
     // let deleted_tokens = tokens
