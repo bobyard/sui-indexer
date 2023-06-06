@@ -232,6 +232,8 @@ pub async fn handle_token_create(
                             collection.collection_id, e
                         ))
                     })?;
+
+                info!("Success insert the query collection to search engine");
             }
 
             if let Err(e) = update_collection_metadata(
@@ -252,6 +254,8 @@ pub async fn handle_token_create(
             delivery.nack(nack).await.expect("nack");
             continue;
         }
+
+        info!("Success for create token return ask to channel");
 
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
     }
