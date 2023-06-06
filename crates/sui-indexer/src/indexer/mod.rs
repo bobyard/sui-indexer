@@ -179,13 +179,13 @@ impl Indexer {
         //     "2f820aa6c2ba05b1ea20abdd951e4ca7",
         // )
         // .init_index::<Collection>("collections");
-        let collections_index = algoliasearch::Client::new(
-            &std::env::var("ALGOLIA_APPLICATION_ID")
-                .expect("ALGOLIA_APPLICATION_ID must be set"),
-            &std::env::var("ALGOLIA_API_KEY")
-                .expect("ALGOLIA_API_KEY must be set"),
-        )
-        .init_index::<Collection>("collections");
+        // let collections_index = algoliasearch::Client::new(
+        //     &std::env::var("ALGOLIA_APPLICATION_ID")
+        //         .expect("ALGOLIA_APPLICATION_ID must be set"),
+        //     &std::env::var("ALGOLIA_API_KEY")
+        //         .expect("ALGOLIA_API_KEY must be set"),
+        // )
+        // .init_index::<Collection>("collections");
 
         while let Some(downloaded_checkpoints) = receiver.next().await {
             for (check_point_data, _, object_changed, events) in
@@ -225,17 +225,16 @@ impl Indexer {
                 let (collections, collect_act) =
                     collection_indexer_work(&collections)?;
 
-                if !collections.is_empty() {
-                    for collection in &collections {
-                        collections_index
-                            .add_object(collection)
-                            .await
-                            .map_err(|e| anyhow!(format!("{:?}", e)))?;
-                    }
-                }
+                // if !collections.is_empty() {
+                //     for collection in &collections {
+                //         collections_index
+                //             .add_object(collection)
+                //             .await
+                //             .map_err(|e| anyhow!(format!("{:?}", e)))?;
+                //     }
+                // }
 
                 activities.extend_from_slice(&collect_act);
-
                 let (tokens, tokens_act) = token_indexer_work(&tokens)?;
                 activities.extend_from_slice(&tokens_act);
 

@@ -16,7 +16,7 @@ futures = "0.3.23"
 serde = { version = "1.0.144", features = ["derive"] }
 serde_json = "1.0.83"
 anyhow = { version = "1.0.64", features = ["backtrace"] }
-sui-sdk = { git = "https://github.com/MystenLabs/sui", branch = "mainnet" }
+sui-sdk = { git = "https://github.com/MystenLabs/sui", rev="8b6815" }
 lapin = "2.1.1"
 tracing = "0.1"
 tracing-subscriber = "0.2.0"
@@ -25,4 +25,4 @@ redis = { version = "0.23.0", features = ["tokio-comp"] }
 structopt = "0.3.26"
 flume = "0.10.14"
 dotenv = "0.15.0"
-algoliasearch = "0.1.6"
+#algoliasearch = "0.1.6"

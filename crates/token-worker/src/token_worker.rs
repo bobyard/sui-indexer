@@ -78,12 +78,12 @@ pub async fn handle_token_create(
 
     let mut pg = pool.get()?;
 
-    let collection_index_read = algoliasearch::Client::new(
-        &std::env::var("ALGOLIA_APPLICATION_ID")
-            .expect("ALGOLIA_APPLICATION_ID must be set"),
-        &std::env::var("ALGOLIA_API_KEY").expect("ALGOLIA_API_KEY must be set"),
-    )
-    .init_index::<CollectionObjectId>("collections");
+    // let collection_index_read = algoliasearch::Client::new(
+    //     &std::env::var("ALGOLIA_APPLICATION_ID")
+    //         .expect("ALGOLIA_APPLICATION_ID must be set"),
+    //     &std::env::var("ALGOLIA_API_KEY").expect("ALGOLIA_API_KEY must be
+    // set"), )
+    // .init_index::<CollectionObjectId>("collections");
 
     let collection_index_write = algoliasearch::Client::new(
         &std::env::var("ALGOLIA_APPLICATION_ID")
@@ -156,6 +156,8 @@ pub async fn handle_token_create(
         // query the collection
         if let Ok(mut collection) = query_collection(&mut pg, &t.collection_id)
         {
+            let mut insert_to_searche_ngine = false;
+
             if name.is_empty() {
                 name = collection
                     .collection_name
@@ -165,48 +167,62 @@ pub async fn handle_token_create(
 
             if collection.display_name.is_none() {
                 collection.display_name = Some(name.clone());
+                insert_to_searche_ngine = true;
             }
 
             if collection.icon.is_none() {
                 collection.icon = t.image.clone();
+                insert_to_searche_ngine = true;
             }
 
-            let collection_search = collection_index_read
-                .search(collection.collection_id.as_str())
-                .await
-                .map_err(|e| {
-                    anyhow!(format!(
-                        "Failed search collection_id {} error {:?}",
-                        collection.collection_id, e
-                    ))
-                })?;
+            // let collection_search = collection_index_read
+            //     .search(collection.collection_id.as_str())
+            //     .await
+            //     .map_err(|e| {
+            //         anyhow!(format!(
+            //             "Failed search collection_id {} error {:?}",
+            //             collection.collection_id, e
+            //         ))
+            //     })?;
 
-            dbg!(&collection_search);
-            if collection_search.hits.len() == 1 {
-                for c in collection_search.hits {
-                    collection_index_write
-                        .update_object(&collection, &c.object_id)
-                        .await
-                        .map_err(|e| {
-                            anyhow!(format!(
-                                "Failed update collection_id {} error {:?}",
-                                collection.collection_id, e
-                            ))
-                        })?;
-                }
-            } else {
-                for c in collection_search.hits {
-                    collection_index_write
-                        .delete_object(&c.object_id)
-                        .await
-                        .map_err(|e| {
-                            anyhow!(format!(
-                                "Failed delete collection_id {} error {:?}",
-                                collection.collection_id, e
-                            ))
-                        })?;
-                }
+            // dbg!(&collection_search);
+            // if collection_search.hits.len() == 1 {
+            //     for c in collection_search.hits {
+            //         collection_index_write
+            //             .update_object(&collection, &c.object_id)
+            //             .await
+            //             .map_err(|e| {
+            //                 anyhow!(format!(
+            //                     "Failed update collection_id {} error {:?}",
+            //                     collection.collection_id, e
+            //                 ))
+            //             })?;
+            //     }
+            // } else {
+            //     for c in collection_search.hits {
+            //         collection_index_write
+            //             .delete_object(&c.object_id)
+            //             .await
+            //             .map_err(|e| {
+            //                 anyhow!(format!(
+            //                     "Failed delete collection_id {} error {:?}",
+            //                     collection.collection_id, e
+            //                 ))
+            //             })?;
+            //     }
 
+            //     collection_index_write
+            //         .add_object(&collection)
+            //         .await
+            //         .map_err(|e| {
+            //             anyhow!(format!(
+            //                 "Failed add upgrand collection_id {} error {:?}",
+            //                 collection.collection_id, e
+            //             ))
+            //         })?;
+            // }
+
+            if insert_to_searche_ngine {
                 collection_index_write
                     .add_object(&collection)
                     .await
