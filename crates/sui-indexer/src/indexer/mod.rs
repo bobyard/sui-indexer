@@ -244,6 +244,7 @@ impl Indexer {
                     }
 
                     if tokens.len() > 0 {
+                        dbg!(&tokens);
                         batch_change(conn, &tokens).unwrap();
                     }
 
