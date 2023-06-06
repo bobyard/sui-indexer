@@ -1,6 +1,6 @@
 pub mod receiver;
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result};
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::ExpressionMethods;
@@ -18,7 +18,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::models::activities::batch_insert as batch_insert_activities;
 use crate::models::check_point::query_check_point;
-use crate::models::collections::{batch_insert, Collection};
+use crate::models::collections::batch_insert;
 
 use crate::models::tokens::batch_change;
 use crate::{
