@@ -69,7 +69,9 @@ pub enum EventIndex {
 }
 
 impl From<BobYardEvent> for EventIndex {
-    fn from(event: BobYardEvent) -> Self { EventIndex::BobYard(event) }
+    fn from(event: BobYardEvent) -> Self {
+        EventIndex::BobYard(event)
+    }
 }
 
 #[derive(Debug)]
@@ -105,13 +107,9 @@ pub fn parse_event(
     let events = events
         .into_iter()
         .filter_map(|e| {
-            dbg!(&e.type_);
-
-            dbg!(&e.parsed_json);
             if e.package_id.to_string() == event_account.bob_yard {
                 bobyard_event_parse(e)
             } else if e.package_id.to_string() == event_account.origin_byte {
-                dbg!(&e.parsed_json);
                 None
             } else {
                 None
