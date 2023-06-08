@@ -1,5 +1,6 @@
 pub mod receiver;
 
+use crate::handlers::bobyard_event_catch::EventAccount;
 use anyhow::{Error, Result};
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -32,9 +33,7 @@ use sui_sdk::rpc_types::{
 
 use crate::config::Config;
 use crate::handlers::activity::parse_tokens_activity;
-use crate::handlers::bobyard_event_catch::{
-    event_handle, parse_bob_yard_event,
-};
+use crate::handlers::bobyard_event_catch::{event_handle, parse_event};
 use crate::handlers::collection::{collection_indexer_work, parse_collection};
 use crate::handlers::token::{parse_tokens, token_indexer_work};
 use crate::indexer::receiver::IndexingMessage;
@@ -187,6 +186,11 @@ impl Indexer {
         // )
         // .init_index::<Collection>("collections");
 
+        let event_account = EventAccount::new(
+            self.config.bob_yard.clone(),
+            self.config.origin_byte.clone(),
+        );
+
         while let Some(downloaded_checkpoints) = receiver.next().await {
             for (check_point_data, _, object_changed, events) in
                 downloaded_checkpoints
@@ -198,11 +202,9 @@ impl Indexer {
                 )?;
 
                 let tokens = parse_tokens(&object_changed, &mut collects_set)?;
-                let bob_yard_events =
-                    parse_bob_yard_event(&events, &self.config.bob_yard)?;
+                let events = parse_event(&events, &event_account)?;
 
-                let mut activities =
-                    parse_tokens_activity(&bob_yard_events, &tokens);
+                let mut activities = parse_tokens_activity(&events, &tokens);
 
                 for (msg, collection) in collections.iter() {
                     self.sender
@@ -244,18 +246,17 @@ impl Indexer {
                     }
 
                     if tokens.len() > 0 {
-                        dbg!(&tokens);
                         batch_change(conn, &tokens).unwrap();
                     }
 
-                    if bob_yard_events.len() > 0 {
-                        event_handle(
-                            &bob_yard_events,
-                            check_point_data.timestamp_ms as i64,
-                            conn,
-                        )
-                        .unwrap();
-                    }
+                    // if bob_yard_events.len() > 0 {
+                    //     event_handle(
+                    //         &bob_yard_events,
+                    //         check_point_data.timestamp_ms as i64,
+                    //         conn,
+                    //     )
+                    //     .unwrap();
+                    // }
 
                     if activities.len() > 0 {
                         batch_insert_activities(conn, &activities).unwrap();

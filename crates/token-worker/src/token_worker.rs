@@ -59,6 +59,11 @@ pub async fn batch_run_create_channel(
     Ok(())
 }
 
+#[derive(Serialize, Deserialize, Default)]
+struct JsonMetaData {
+    description: String,
+}
+
 pub async fn handle_token_create(
     i: usize,
     channel: lapin::Channel,
@@ -172,7 +177,16 @@ pub async fn handle_token_create(
 
             if collection.icon.is_none() {
                 collection.icon = t.image.clone();
-                insert_to_searche_ngine = true;
+                //collection.description=t.metadata_uri
+                collection.description = if let Some(metadata) = t.metadata_json
+                {
+                    let a = serde_json::from_str::<JsonMetaData>(&metadata)
+                        .unwrap_or_default();
+
+                    a.description
+                } else {
+                    "".to_string()
+                }
             }
 
             // let collection_search = collection_index_read
@@ -254,6 +268,12 @@ pub async fn handle_token_create(
             delivery.nack(nack).await.expect("nack");
             continue;
         }
+
+        //set to redis,
+
+        //when update read from redis, and check is token or not?
+
+        //if is token we keep know what he doing.
 
         info!("Success for create token return ask to channel");
 

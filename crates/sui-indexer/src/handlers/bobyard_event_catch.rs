@@ -10,51 +10,6 @@ use serde::{Deserialize, Serialize};
 use sui_sdk::rpc_types::SuiEvent;
 use tracing::info;
 
-// struct ListEvent<phantom T> has copy, drop {
-// list_id: ID,
-// list_item_id: ID,
-// expire_time: u64,
-// ask: u64,
-// owner: address,
-// }
-//
-// struct DeListEvent<phantom T> has copy, drop {
-// list_id: ID,
-// list_item_id: ID,
-// expire_time: u64,
-// ask: u64,
-// owner: address,
-// }
-//
-// struct BuyEvent<phantom T> has copy, drop {
-// list_id: ID,
-// ask: u64,
-// owner: address,
-// buyer: address,
-// }
-//
-// struct AcceptOfferEvent<phantom T> has copy, drop {
-// offer_id: ID,
-// list_id: ID,
-// offer_amount: u64,
-// owner: address,
-// buyer: address,
-// }
-//
-// struct OfferEvent<phantom T> has copy, drop {
-// offer_id: ID,
-// list_id: ID,
-// offer_amount: u64,
-// expire_time: u64,
-// owner: address,
-// }
-//
-// struct CancelOfferEvent<phantom T> has copy, drop {
-// offer_id: ID,
-// list_id: ID,
-// owner: address,
-// }
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct List {
     pub list_id: String,
@@ -109,6 +64,15 @@ pub struct CancelOffer {
 }
 
 #[derive(Debug)]
+pub enum EventIndex {
+    BobYard(BobYardEvent),
+}
+
+impl From<BobYardEvent> for EventIndex {
+    fn from(event: BobYardEvent) -> Self { EventIndex::BobYard(event) }
+}
+
+#[derive(Debug)]
 pub enum BobYardEvent {
     List(List),
     DeList(DeList),
@@ -118,56 +82,44 @@ pub enum BobYardEvent {
     CancelOffer(CancelOffer),
 }
 
-pub fn parse_bob_yard_event(
+pub struct EventAccount {
+    bob_yard: String,
+    origin_byte: String,
+    sui_best: String,
+}
+
+impl EventAccount {
+    pub fn new(bob_yard: String, origin_byte: String) -> Self {
+        Self {
+            bob_yard,
+            origin_byte,
+            sui_best: String::default(),
+        }
+    }
+}
+
+pub fn parse_event(
     events: &Vec<SuiEvent>,
-    event_address: &str,
-) -> Result<Vec<BobYardEvent>> {
-    let bob_yard_events = events
+    event_account: &EventAccount,
+) -> Result<Vec<EventIndex>> {
+    let events = events
         .into_iter()
         .filter_map(|e| {
-            if &e.package_id.to_string() == event_address {
-                let event_data = e.parsed_json.clone();
-                let event_name = e.type_.name.clone().to_string();
-                match event_name.as_str() {
-                    "ListEvent" => {
-                        let list: List =
-                            serde_json::from_value(event_data).unwrap();
-                        Some(BobYardEvent::List(list))
-                    }
-                    "DeListEvent" => {
-                        let de_list: DeList =
-                            serde_json::from_value(event_data).unwrap();
-                        Some(BobYardEvent::DeList(de_list))
-                    }
-                    "BuyEvent" => {
-                        let buy: Buy =
-                            serde_json::from_value(event_data).unwrap();
-                        Some(BobYardEvent::Buy(buy))
-                    }
-                    "AcceptOfferEvent" => {
-                        let accept_offer: AcceptOffer =
-                            serde_json::from_value(event_data).unwrap();
-                        Some(BobYardEvent::AcceptOffer(accept_offer))
-                    }
-                    "OfferEvent" => {
-                        let make_offer: MakeOffer =
-                            serde_json::from_value(event_data).unwrap();
-                        Some(BobYardEvent::MakeOffer(make_offer))
-                    }
-                    "CancelOfferEvent" => {
-                        let cancel_offer: CancelOffer =
-                            serde_json::from_value(event_data).unwrap();
-                        Some(BobYardEvent::CancelOffer(cancel_offer))
-                    }
-                    _ => None,
-                }
+            dbg!(&e.type_);
+
+            dbg!(&e.parsed_json);
+            if e.package_id.to_string() == event_account.bob_yard {
+                bobyard_event_parse(e)
+            } else if e.package_id.to_string() == event_account.origin_byte {
+                dbg!(&e.parsed_json);
+                None
             } else {
                 None
             }
         })
-        .collect::<Vec<BobYardEvent>>();
+        .collect::<Vec<EventIndex>>();
 
-    Ok(bob_yard_events)
+    Ok(events)
 }
 
 impl From<&List> for lists::List {
@@ -247,6 +199,41 @@ impl From<&AcceptOffer> for orders::Order {
             offer_id: Some(accept_offer.offer_id.clone()),
             sell_time: Default::default(),
         }
+    }
+}
+
+pub fn bobyard_event_parse(e: &SuiEvent) -> Option<EventIndex> {
+    let event_data = e.parsed_json.clone();
+    let event_name = e.type_.name.clone().to_string();
+    match event_name.as_str() {
+        "ListEvent" => {
+            let list: List = serde_json::from_value(event_data).unwrap();
+            Some(BobYardEvent::List(list).into())
+        }
+        "DeListEvent" => {
+            let de_list: DeList = serde_json::from_value(event_data).unwrap();
+            Some(BobYardEvent::DeList(de_list).into())
+        }
+        "BuyEvent" => {
+            let buy: Buy = serde_json::from_value(event_data).unwrap();
+            Some(BobYardEvent::Buy(buy).into())
+        }
+        "AcceptOfferEvent" => {
+            let accept_offer: AcceptOffer =
+                serde_json::from_value(event_data).unwrap();
+            Some(BobYardEvent::AcceptOffer(accept_offer).into())
+        }
+        "OfferEvent" => {
+            let make_offer: MakeOffer =
+                serde_json::from_value(event_data).unwrap();
+            Some(BobYardEvent::MakeOffer(make_offer).into())
+        }
+        "CancelOfferEvent" => {
+            let cancel_offer: CancelOffer =
+                serde_json::from_value(event_data).unwrap();
+            Some(BobYardEvent::CancelOffer(cancel_offer).into())
+        }
+        _ => None,
     }
 }
 

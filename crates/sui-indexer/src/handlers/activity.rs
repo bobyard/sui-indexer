@@ -3,10 +3,23 @@ use crate::models::activities::{Activity, ActivityType};
 use crate::models::tokens::Token;
 use crate::ObjectStatus;
 
+use super::bobyard_event_catch::EventIndex;
+
 pub fn parse_tokens_activity(
-    bob_yard_events: &Vec<BobYardEvent>,
+    events: &Vec<EventIndex>,
     tokens: &Vec<(ObjectStatus, (Token, String))>,
 ) -> Vec<Activity> {
+    let bob_yard_events = events
+        .iter()
+        .filter_map(|e| {
+            if let EventIndex::BobYard(bob_yard_event) = e {
+                Some(bob_yard_event.clone())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<&BobYardEvent>>();
+
     let token_activities = Vec::new();
     let changed_tokens = tokens
         .iter()
