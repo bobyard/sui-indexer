@@ -5,7 +5,7 @@ use redis::Commands;
 use crate::aws::S3Store;
 use crate::PgPool;
 use futures::StreamExt;
-use lapin::options::{BasicAckOptions, BasicNackOptions};
+use lapin::options::{BasicAckOptions, BasicNackOptions, BasicQosOptions};
 use lapin::types::FieldTable;
 use serde::{Deserialize, Serialize};
 use sui_indexer::indexer::receiver::TOKEN_EXCHANGE;
@@ -41,6 +41,8 @@ pub async fn batch_run_create_channel(
 
     for i in 0..batch {
         let channel = mq.create_channel().await?;
+        channel.basic_qos(1, BasicQosOptions::default()).await?;
+
         let r = rds.clone();
         customers.push(tokio::spawn(handle_token_create(
             i,
@@ -297,15 +299,15 @@ pub async fn handle_token_update(channel: lapin::Channel) -> Result<()> {
 
     while let Some(delivery) = consumer.next().await {
         let delivery = delivery.expect("error in consumer");
-        info!("consumer: {}", TOKEN_UPDATE);
+        //info!("consumer: {}", TOKEN_UPDATE);
 
-        let _t = match serde_json::from_slice::<Token>(&delivery.data) {
-            Ok(t) => t,
-            Err(e) => {
-                tracing::error!("error deserializing token: {}", e);
-                continue;
-            }
-        };
+        // let _t = match serde_json::from_slice::<Token>(&delivery.data) {
+        //     Ok(t) => t,
+        //     Err(e) => {
+        //         tracing::error!("error deserializing token: {}", e);
+        //         continue;
+        //     }
+        // };
 
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
     }
@@ -380,15 +382,15 @@ pub async fn handle_token_wrap(channel: lapin::Channel) -> Result<()> {
     while let Some(delivery) = consumer.next().await {
         let delivery = delivery.expect("error in consumer");
 
-        info!("consumer: {}", TOKEN_WRAP);
+        // info!("consumer: {}", TOKEN_WRAP);
 
-        let _t = match serde_json::from_slice::<Token>(&delivery.data) {
-            Ok(t) => t,
-            Err(e) => {
-                tracing::error!("error deserializing token: {}", e);
-                continue;
-            }
-        };
+        // let _t = match serde_json::from_slice::<Token>(&delivery.data) {
+        //     Ok(t) => t,
+        //     Err(e) => {
+        //         tracing::error!("error deserializing token: {}", e);
+        //         continue;
+        //     }
+        // };
 
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
     }
