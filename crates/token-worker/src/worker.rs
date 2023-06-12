@@ -5,6 +5,7 @@ use crate::token_worker::{
 };
 use crate::PgPool;
 use anyhow::Result;
+use futures::future::try_join_all;
 use lapin::Connection;
 
 use tracing::error;
@@ -38,15 +39,21 @@ impl Worker {
         let rds = self.rds.clone();
         let mq = self.mq;
 
-        tokio::try_join!(
-            handle_token_update(update_channel),
-            handle_token_delete(delete_channel, self.pg.clone()),
-            batch_run_create_channel(100, mq, pg, s3, rds),
-            handle_token_unwrap(unwrap_channel),
-            handle_token_wrap(wrap_channel),
-            handle_token_unwrap_when_delete(unwrap_when_delete_channel)
-        )?;
+        let mut workers = vec![];
+        workers.push(tokio::spawn(handle_token_update(update_channel)));
+        workers.push(tokio::spawn(handle_token_delete(
+            delete_channel,
+            self.pg.clone(),
+        )));
+        workers
+            .push(tokio::spawn(batch_run_create_channel(100, mq, pg, s3, rds)));
+        workers.push(tokio::spawn(handle_token_unwrap(unwrap_channel)));
+        workers.push(tokio::spawn(handle_token_wrap(wrap_channel)));
+        workers.push(tokio::spawn(handle_token_unwrap_when_delete(
+            unwrap_when_delete_channel,
+        )));
 
+        try_join_all(workers).await?;
         error!("all workers finished");
         Ok(())
     }

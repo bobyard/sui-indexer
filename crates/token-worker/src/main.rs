@@ -54,6 +54,6 @@ async fn main() -> Result<()> {
     // );
     // let activities_index = algo.init_index::<Activity>("activities");
 
-    let mut worker = Worker::new(s3, pool, conn, redis);
+    let worker = Worker::new(s3, pool, conn, redis);
     worker.start().await
 }
