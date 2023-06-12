@@ -32,7 +32,7 @@ struct CollectionObjectId {
 
 pub async fn batch_run_create_channel(
     batch: usize,
-    mq: &lapin::Connection,
+    mq: lapin::Connection,
     pool: PgPool,
     s3: S3Store,
     rds: redis::Client,
@@ -85,13 +85,6 @@ pub async fn handle_token_create(
 
     let mut pg = pool.get()?;
 
-    // let collection_index_read = algoliasearch::Client::new(
-    //     &std::env::var("ALGOLIA_APPLICATION_ID")
-    //         .expect("ALGOLIA_APPLICATION_ID must be set"),
-    //     &std::env::var("ALGOLIA_API_KEY").expect("ALGOLIA_API_KEY must be
-    // set"), )
-    // .init_index::<CollectionObjectId>("collections");
-
     let collection_index_write = algoliasearch::Client::new(
         &std::env::var("ALGOLIA_APPLICATION_ID")
             .expect("ALGOLIA_APPLICATION_ID must be set"),
@@ -117,11 +110,6 @@ pub async fn handle_token_create(
         let mut nack = BasicNackOptions::default();
         nack.requeue = !delivery.redelivered;
 
-        //wait the db process done we can select and update
-        //tokio::time::sleep(tokio::time::Duration::from_micros(500)).await;
-
-        // let url = t.metadata_uri
-        // update to s3 store
         let cache: Option<String> =
             rds.hget("url_caches", t.metadata_uri.clone())?;
         if cache.is_none() {
@@ -411,15 +399,16 @@ pub async fn handle_token_unwrap(channel: lapin::Channel) -> Result<()> {
 
     while let Some(delivery) = consumer.next().await {
         let delivery = delivery.expect("error in consumer");
-        info!("consumer: {}", TOKEN_UNWRAP);
+        //info!("consumer: {}", TOKEN_UNWRAP);
 
-        let _t = match serde_json::from_slice::<Token>(&delivery.data) {
-            Ok(t) => t,
-            Err(e) => {
-                tracing::error!("error deserializing token: {}", e);
-                continue;
-            }
-        };
+        // let _t = match serde_json::from_slice::<Token>(&delivery.data) {
+        //     Ok(t) => t,
+        //     Err(e) => {
+        //         tracing::error!("error deserializing token: {}", e);
+        //         continue;
+        //     }
+        // };
+
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
     }
 

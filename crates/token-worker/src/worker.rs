@@ -26,22 +26,22 @@ impl Worker {
         Worker { s3, pg, mq, rds }
     }
 
-    pub async fn start(&mut self) -> Result<()> {
+    pub async fn start(self) -> Result<()> {
         let update_channel = self.mq.create_channel().await?;
         let delete_channel = self.mq.create_channel().await?;
         let wrap_channel = self.mq.create_channel().await?;
         let unwrap_channel = self.mq.create_channel().await?;
         let unwrap_when_delete_channel = self.mq.create_channel().await?;
 
+        let pg = self.pg.clone();
+        let s3 = self.s3.clone();
+        let rds = self.rds.clone();
+        let mq = self.mq;
+
+        let _ = tokio::spawn(batch_run_create_channel(100, mq, pg, s3, rds));
+
         tokio::try_join!(
             handle_token_update(update_channel),
-            batch_run_create_channel(
-                20,
-                &self.mq,
-                self.pg.clone(),
-                self.s3.clone(),
-                self.rds.clone(),
-            ),
             handle_token_delete(delete_channel, self.pg.clone()),
             handle_token_unwrap(unwrap_channel),
             handle_token_wrap(wrap_channel),
