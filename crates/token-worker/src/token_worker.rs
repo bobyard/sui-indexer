@@ -83,8 +83,6 @@ pub async fn handle_token_create(
         )
         .await?;
 
-    let mut pg = pool.get()?;
-
     let collection_index_write = algoliasearch::Client::new(
         &std::env::var("ALGOLIA_APPLICATION_ID")
             .expect("ALGOLIA_APPLICATION_ID must be set"),
@@ -106,6 +104,7 @@ pub async fn handle_token_create(
                 continue;
             }
         };
+        let mut pg = pool.get()?;
 
         let mut nack = BasicNackOptions::default();
         nack.requeue = !delivery.redelivered;

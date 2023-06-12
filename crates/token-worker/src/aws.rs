@@ -65,7 +65,7 @@ impl S3Store {
         let req = reqwest::ClientBuilder::new();
 
         let req = req
-            .connect_timeout(std::time::Duration::from_secs(5))
+            .connect_timeout(std::time::Duration::from_secs(1))
             .build()?;
 
         let response = req.get(url).send().await?.error_for_status()?;
