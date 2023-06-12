@@ -38,11 +38,10 @@ impl Worker {
         let rds = self.rds.clone();
         let mq = self.mq;
 
-        let _ = batch_run_create_channel(100, mq, pg, s3, rds);
-
         tokio::try_join!(
             handle_token_update(update_channel),
             handle_token_delete(delete_channel, self.pg.clone()),
+            batch_run_create_channel(100, mq, pg, s3, rds),
             handle_token_unwrap(unwrap_channel),
             handle_token_wrap(wrap_channel),
             handle_token_unwrap_when_delete(unwrap_when_delete_channel)

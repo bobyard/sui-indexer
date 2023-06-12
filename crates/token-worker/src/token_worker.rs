@@ -37,26 +37,26 @@ pub async fn batch_run_create_channel(
     s3: S3Store,
     rds: redis::Client,
 ) -> Result<()> {
-    //let mut customers = vec![];
+    let mut customers = vec![];
 
     for i in 0..batch {
         let channel = mq.create_channel().await?;
         channel.basic_qos(1, BasicQosOptions::default()).await?;
 
         let r = rds.clone();
-        tokio::spawn(handle_token_create(
+        customers.push(tokio::spawn(handle_token_create(
             i,
             channel,
             pool.clone(),
             s3.clone(),
             r,
-        ));
+        )));
     }
 
-    // let res = join_all(customers).await;
-    // for r in res {
-    //     let _ = r?;
-    // }
+    let res = join_all(customers).await;
+    for r in res {
+        let _ = r?;
+    }
 
     Ok(())
 }
