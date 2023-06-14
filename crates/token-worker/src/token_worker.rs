@@ -70,7 +70,7 @@ pub async fn handle_token_create(
     i: usize,
     channel: lapin::Channel,
     pool: PgPool,
-    s3: S3Store,
+    mut s3: S3Store,
     mut rds: redis::Client,
 ) -> Result<()> {
     let _ = create_and_bind(&channel, &TOKEN_CREATE).await?;
@@ -112,23 +112,23 @@ pub async fn handle_token_create(
         let cache: Option<String> =
             rds.hget("url_caches", t.metadata_uri.clone())?;
         if cache.is_none() {
-            // match s3.update_with_remote_url(t.metadata_uri.clone()).await {
-            //     Ok(img_hash) => {
-            //         let _: () = rds
-            //             .hset(
-            //                 "url_caches",
-            //                 t.metadata_uri.clone(),
-            //                 img_hash.clone(),
-            //             )
-            //             .unwrap();
-            //         t.image = Some(img_hash)
-            //     }
-            //     Err(e) => {
-            //         error!("upload to aws err : {}", e.to_string());
-            //         delivery.nack(nack).await.expect("nack");
-            //         continue;
-            //     }
-            // }
+            match s3.update_with_remote_url(t.metadata_uri.clone()).await {
+                Ok(img_hash) => {
+                    let _: () = rds
+                        .hset(
+                            "url_caches",
+                            t.metadata_uri.clone(),
+                            img_hash.clone(),
+                        )
+                        .unwrap();
+                    t.image = Some(img_hash)
+                }
+                Err(e) => {
+                    error!("upload to aws err : {}", e.to_string());
+                    delivery.nack(nack).await.expect("nack");
+                    continue;
+                }
+            }
         } else {
             t.image = Some(cache.unwrap())
         };
