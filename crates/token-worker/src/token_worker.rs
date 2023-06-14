@@ -42,15 +42,15 @@ pub async fn batch_run_create_channel(
     for i in 0..batch {
         let channel = mq.create_channel().await?;
         channel.basic_qos(1, BasicQosOptions::default()).await?;
-
         let r = rds.clone();
-        customers.push(tokio::spawn(handle_token_create(
-            i,
-            channel,
-            pool.clone(),
-            s3.clone(),
-            r,
-        )));
+        let s3 = s3.clone();
+        let pg_pool = pool.clone();
+
+        customers.push(tokio::spawn(async move {
+            handle_token_create(i, channel, pg_pool, s3, r)
+                .await
+                .unwrap()
+        }));
     }
 
     let res = join_all(customers).await;
