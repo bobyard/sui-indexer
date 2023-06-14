@@ -70,7 +70,7 @@ pub async fn handle_token_create(
     i: usize,
     channel: lapin::Channel,
     pool: PgPool,
-    mut s3: S3Store,
+    s3: S3Store,
     mut rds: redis::Client,
 ) -> Result<()> {
     let _ = create_and_bind(&channel, &TOKEN_CREATE).await?;

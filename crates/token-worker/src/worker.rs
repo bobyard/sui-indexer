@@ -46,7 +46,7 @@ impl Worker {
             self.pg.clone(),
         )));
         workers
-            .push(tokio::spawn(batch_run_create_channel(100, mq, pg, s3, rds)));
+            .push(tokio::spawn(batch_run_create_channel(10, mq, pg, s3, rds)));
         workers.push(tokio::spawn(handle_token_unwrap(unwrap_channel)));
         workers.push(tokio::spawn(handle_token_wrap(wrap_channel)));
         workers.push(tokio::spawn(handle_token_unwrap_when_delete(
