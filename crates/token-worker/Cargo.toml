@@ -9,15 +9,19 @@ name = "sui-token-worker"
 path = "src/main.rs"
 
 [dependencies]
-tokio = { version = "1.27.0", features = ["full"] }
+tokio = {workspace=true}
+futures = {workspace=true}
+serde = {workspace=true}
+serde_json = {workspace=true}
+anyhow = {workspace=true}
+
+
 diesel = { version = "2.0.3", features = ["postgres","r2d2"] }
 diesel-async = { version = "0.2.1",features = ["postgres"]}
 diesel-derive-enum = { version = "^2.0.1", features = ["postgres"] }
 lapin = "2.1.1"
-futures = "0.3.23"
-serde = { version = "1.0.144", features = ["derive"] }
-serde_json = "1.0.83"
-anyhow = { version = "1.0.64", features = ["backtrace"] }
+
+
 tracing = "0.1"
 tracing-subscriber = "0.2.0"
 chrono = "0.4.24"

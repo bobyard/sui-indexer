@@ -108,7 +108,7 @@ pub fn update_image_url(
     Ok(())
 }
 
-pub fn count_star(conn: &mut PgConnection, c_id: String) -> Result<i64> {
+/* pub fn count_star(conn: &mut PgConnection, c_id: String) -> Result<i64> {
     use crate::schema::tokens::dsl::*;
     use diesel::dsl::count_star;
 
@@ -120,7 +120,7 @@ pub fn count_star(conn: &mut PgConnection, c_id: String) -> Result<i64> {
         .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
     Ok(a)
-}
+} */
 
 pub fn set_status_delete(
     connection: &mut PgConnection,

@@ -13,7 +13,7 @@ use sui_indexer::models::collections::Collection;
 use sui_indexer::models::collections::{
     query_collection, update_collection_metadata,
 };
-use sui_indexer::models::tokens::count_star;
+//use sui_indexer::models::tokens::count_star;
 use sui_indexer::models::tokens::{update_image_url, Token};
 use tracing::{error, info};
 
@@ -344,9 +344,9 @@ pub async fn handle_token_delete(
         // query the collection
         let mut collection = query_collection(&mut pg, &t.collection_id)?;
         //query the token numbers
-        let count = count_star(&mut pg, t.collection_id.clone())?;
-        info!("count collection_name: {} NFT-number: {}", name, count);
-        collection.supply = count;
+        //let count = count_star(&mut pg, t.collection_id.clone())?;
+        //info!("count collection_name: {} NFT-number: {}", name, count);
+        //collection.supply = count;
         update_collection_metadata(&mut pg, &t.collection_id, &collection)?;
 
         delivery.ack(BasicAckOptions::default()).await.expect("ack");
