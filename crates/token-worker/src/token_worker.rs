@@ -334,18 +334,18 @@ pub async fn handle_token_delete(
         //delete token
         //set_status_delete(&mut pg, &t.token_id)?;
 
-        let mut name = t.token_name.clone();
+        let name = t.token_name.clone();
         let mut display_name: Vec<_> = name.split("#").collect();
         if display_name.len() > 1 {
             display_name.remove(display_name.len() - 1);
-            name = display_name.join(" ").to_string();
+            //name = display_name.join(" ").to_string();
         }
 
         // query the collection
-        let mut collection = query_collection(&mut pg, &t.collection_id)?;
+        let collection = query_collection(&mut pg, &t.collection_id)?;
         //query the token numbers
         //let count = count_star(&mut pg, t.collection_id.clone())?;
-        //info!("count collection_name: {} NFT-number: {}", name, count);
+        //info!("count collection_name: {}", name);
         //collection.supply = count;
         update_collection_metadata(&mut pg, &t.collection_id, &collection)?;
 

@@ -10,6 +10,10 @@ pub mod sql_types {
     pub struct ListType;
 
     #[derive(diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "market_type"))]
+    pub struct MarketType;
+
+    #[derive(diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "offer_type"))]
     pub struct OfferType;
 
@@ -88,30 +92,9 @@ diesel::table! {
 }
 
 diesel::table! {
-    domains (token_id) {
-        chain_id -> Int8,
-        token_id -> Varchar,
-        collection_id -> Varchar,
-        domain -> Varchar,
-        domain_type -> Varchar,
-        sub_domain -> Varchar,
-        suffix -> Varchar,
-        description -> Varchar,
-        version -> Int8,
-        metadata_uri -> Varchar,
-        metadata_json -> Nullable<Varchar>,
-        image -> Nullable<Varchar>,
-        expired_time -> Nullable<Timestamp>,
-        regest_time -> Nullable<Timestamp>,
-        owner_address -> Nullable<Varchar>,
-        created_at -> Nullable<Timestamp>,
-        updated_at -> Nullable<Timestamp>,
-    }
-}
-
-diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::ListType;
+    use super::sql_types::MarketType;
 
     lists (id) {
         id -> Int4,
@@ -122,8 +105,9 @@ diesel::table! {
         token_id -> Varchar,
         seller_address -> Varchar,
         seller_value -> Int8,
-        expire_time -> Timestamp,
+        expire_time -> Nullable<Timestamp>,
         list_type -> ListType,
+        market_type -> MarketType,
         created_at -> Nullable<Timestamp>,
         updated_at -> Nullable<Timestamp>,
     }
@@ -202,7 +186,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     activities,
     check_point,
     collections,
-    domains,
     lists,
     offers,
     orders,

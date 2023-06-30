@@ -1,9 +1,9 @@
-use crate::handlers::bobyard_event_catch::BobYardEvent;
+use crate::handlers::event::bobyard_event::BobYardEvent;
 use crate::models::activities::{Activity, ActivityType};
 use crate::models::tokens::Token;
 use crate::ObjectStatus;
 
-use super::bobyard_event_catch::EventIndex;
+use super::event::EventIndex;
 
 pub fn parse_tokens_activity(
     events: &Vec<EventIndex>,

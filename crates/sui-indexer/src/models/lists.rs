@@ -16,6 +16,15 @@ pub enum ListType {
     Sold,
 }
 
+#[derive(DbEnum, Debug, Clone, Copy, Deserialize, Serialize, PartialEq)]
+#[ExistingTypePath = "crate::schema::sql_types::MarketType"]
+#[serde(rename_all = "snake_case")]
+pub enum MarketType {
+    BobYard,
+    Kiosk,
+    OriginByteKiosk,
+}
+
 #[derive(Insertable, Queryable, Debug, Clone)]
 #[diesel(table_name = lists)]
 pub struct List {
@@ -27,7 +36,8 @@ pub struct List {
     pub seller_address: String,
     pub seller_value: i64,
     pub list_type: ListType,
-    pub expire_time: chrono::NaiveDateTime,
+    pub market_type: MarketType,
+    pub expire_time: Option<chrono::NaiveDateTime>,
     pub created_at: Option<chrono::NaiveDateTime>,
     pub updated_at: Option<chrono::NaiveDateTime>,
 }

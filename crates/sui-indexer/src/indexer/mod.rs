@@ -1,6 +1,5 @@
 pub mod receiver;
 
-use crate::handlers::bobyard_event_catch::EventAccount;
 use anyhow::{Error, Result};
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
@@ -17,6 +16,7 @@ use sui_sdk::types::messages_checkpoint::CheckpointSequenceNumber;
 use sui_sdk::SuiClient;
 use tokio::sync::mpsc::Sender;
 
+use crate::handlers::event::{event_handle, EventAccount};
 use crate::models::activities::batch_insert as batch_insert_activities;
 use crate::models::check_point::query_check_point;
 use crate::models::collections::batch_insert;
@@ -33,8 +33,8 @@ use sui_sdk::rpc_types::{
 
 use crate::config::Config;
 use crate::handlers::activity::parse_tokens_activity;
-use crate::handlers::bobyard_event_catch::{event_handle, parse_event};
 use crate::handlers::collection::{collection_indexer_work, parse_collection};
+use crate::handlers::event::parse_event;
 use crate::handlers::token::{parse_tokens, token_indexer_work};
 use crate::indexer::receiver::IndexingMessage;
 use tracing::{info, warn};
@@ -82,7 +82,6 @@ impl Indexer {
             sender,
             check_point_data_sender: s,
             check_point_data_receiver: r,
-            //            algo,
         }
     }
 
@@ -138,20 +137,7 @@ impl Indexer {
 
             indexer += downloaded_checkpoints.len() as u64;
 
-            // let updated_row =
-            //     diesel::update(check_point.filter(chain_id.eq(1)))
-            //         .set(version.eq(indexer as i64))
-            //         .get_result::<(i64, i64)>(&mut pg);
-            //
-            // assert_eq!(Ok((1, indexer as i64)), updated_row);
-            let last_sequence = self
-                .sui_client
-                .read_api()
-                .get_latest_checkpoint_sequence_number()
-                .await?;
-
             info!(
-                last_sequence = last_sequence,
                 download_check_points = downloaded_checkpoints.len(),
                 next_sequence_start = indexer,
                 "transactions processed"
@@ -165,26 +151,6 @@ impl Indexer {
         let mut redis = self.redis.get_connection()?;
         let mut collects_set: HashMap<String, String> =
             redis.hgetall("collections")?;
-
-        // read ALGOLIA_APPLICATION_ID and ALGOLIA_API_KEY from env
-        // let algo = algoliasearch::Client::new(
-        //     "K6MYR2JP0U",
-        //     "2f820aa6c2ba05b1ea20abdd951e4ca7",
-        // );
-        // let activities_index = algo.init_index::<Activity>("activities");
-
-        // let collections_index = algoliasearch::Client::new(
-        //     "K6MYR2JP0U",
-        //     "2f820aa6c2ba05b1ea20abdd951e4ca7",
-        // )
-        // .init_index::<Collection>("collections");
-        // let collections_index = algoliasearch::Client::new(
-        //     &std::env::var("ALGOLIA_APPLICATION_ID")
-        //         .expect("ALGOLIA_APPLICATION_ID must be set"),
-        //     &std::env::var("ALGOLIA_API_KEY")
-        //         .expect("ALGOLIA_API_KEY must be set"),
-        // )
-        // .init_index::<Collection>("collections");
 
         let event_account = EventAccount::new(
             self.config.bob_yard.clone(),
@@ -203,7 +169,6 @@ impl Indexer {
 
                 let tokens = parse_tokens(&object_changed, &mut collects_set)?;
                 let events = parse_event(&events, &event_account)?;
-
                 let mut activities = parse_tokens_activity(&events, &tokens);
 
                 for (msg, collection) in collections.iter() {
@@ -227,15 +192,6 @@ impl Indexer {
                 let (collections, collect_act) =
                     collection_indexer_work(&collections)?;
 
-                // if !collections.is_empty() {
-                //     for collection in &collections {
-                //         collections_index
-                //             .add_object(collection)
-                //             .await
-                //             .map_err(|e| anyhow!(format!("{:?}", e)))?;
-                //     }
-                // }
-
                 activities.extend_from_slice(&collect_act);
                 let (tokens, tokens_act) = token_indexer_work(&tokens)?;
                 activities.extend_from_slice(&tokens_act);
@@ -249,14 +205,14 @@ impl Indexer {
                         batch_change(conn, &tokens).unwrap();
                     }
 
-                    // if bob_yard_events.len() > 0 {
-                    //     event_handle(
-                    //         &bob_yard_events,
-                    //         check_point_data.timestamp_ms as i64,
-                    //         conn,
-                    //     )
-                    //     .unwrap();
-                    // }
+                    if events.len() > 0 {
+                        event_handle(
+                            &events,
+                            check_point_data.timestamp_ms as i64,
+                            conn,
+                        )
+                        .unwrap();
+                    }
 
                     if activities.len() > 0 {
                         batch_insert_activities(conn, &activities).unwrap();
@@ -272,10 +228,10 @@ impl Indexer {
                         updated_row
                     );
 
-                    info!(
+                    /*                     info!(
                         sequence_number = check_point_data.sequence_number,
                         "indexer store success processed"
-                    );
+                    ); */
 
                     Ok::<(), anyhow::Error>(())
                 })?;
